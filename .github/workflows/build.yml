@@ -1,0 +1,58 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Read version from gradle.properties
+        id: version
+        run: |
+          APP_VERSION_NAME=$(grep '^APP_VERSION_NAME=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          APP_VERSION_CODE=$(grep '^APP_VERSION_CODE=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          echo "version_name=${APP_VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${APP_VERSION_CODE}" >> "$GITHUB_OUTPUT"
+          echo "Building v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Android build environment image
+        run: docker build -t telegram-app-builder -f Dockerfile .
+
+      - name: Build APKs
+        run: |
+          docker run --rm \
+            -v "$(pwd):/home/source" \
+            telegram-app-builder
+
+      - name: Collect APK artifacts
+        run: |
+          mkdir -p output/apk
+          VERSION="${{ steps.version.outputs.version_name }}"
+          find TMessagesProj/build/outputs/apk/release -name "*.apk" -exec cp {} "output/apk/telegram-v${VERSION}-release.apk" \; 2>/dev/null || true
+          find TMessagesProj/build/outputs/apk/standalone -name "*.apk" -exec cp {} "output/apk/telegram-v${VERSION}-standalone.apk" \; 2>/dev/null || true
+          echo "=== Built APKs ==="
+          ls -lh output/apk/ || echo "No APKs found"
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-apk-v${{ steps.version.outputs.version_name }}
+          path: output/apk/*.apk
+          if-no-files-found: error
+          retention-days: 30

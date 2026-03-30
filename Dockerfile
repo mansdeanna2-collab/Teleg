@@ -41,6 +41,10 @@ ENTRYPOINT ["/bin/bash", "-c", "\
     echo '=== Preparing build environment ===' && \
     mkdir -p /home/source/TMessagesProj/build/outputs/apk && \
     mkdir -p /home/source/TMessagesProj/build/outputs/native-debug-symbols && \
+    echo '--- Reading version from gradle.properties ---' && \
+    APP_VERSION_NAME=$(grep '^APP_VERSION_NAME=' /home/source/gradle.properties | cut -d= -f2 | tr -d '[:space:]') && \
+    APP_VERSION_CODE=$(grep '^APP_VERSION_CODE=' /home/source/gradle.properties | cut -d= -f2 | tr -d '[:space:]') && \
+    echo \"Building version: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})\" && \
     echo '--- Copying source to build directory ---' && \
     cp -R /home/source/. /home/gradle && \
     cd /home/gradle && \
@@ -55,6 +59,7 @@ ENTRYPOINT ["/bin/bash", "-c", "\
     find /home/gradle/TMessagesProj_App/build/outputs/apk/ -name '*.apk' -exec cp {} /home/source/TMessagesProj/build/outputs/apk/release/ \\; && \
     find /home/gradle/TMessagesProj_AppStandalone/build/outputs/apk/ -name '*.apk' -exec cp {} /home/source/TMessagesProj/build/outputs/apk/standalone/ \\; && \
     echo '=== Build complete ===' && \
+    echo \"Version: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})\" && \
     echo 'Release APKs:' && ls -lh /home/source/TMessagesProj/build/outputs/apk/release/ && \
     echo 'Standalone APKs:' && ls -lh /home/source/TMessagesProj/build/outputs/apk/standalone/ \
 "]
