@@ -27,17 +27,21 @@ RUN cp $ANDROID_HOME/build-tools/30.0.3/lib/dx.jar $ANDROID_HOME/build-tools/35.
 ENV PATH ${ANDROID_NDK_HOME}:$PATH
 ENV PATH ${ANDROID_NDK_HOME}/prebuilt/linux-x86_64/bin/:$PATH
 
-CMD mkdir -p /home/source/TMessagesProj/build/outputs/apk && \
-    mkdir -p /home/gradle/TMessagesProj/build/outputs/bundle && \
+ENTRYPOINT ["/bin/bash", "-c", "\
+    set -e && \
+    echo '=== Preparing build environment ===' && \
+    mkdir -p /home/source/TMessagesProj/build/outputs/apk && \
+    mkdir -p /home/source/TMessagesProj/build/outputs/bundle && \
     mkdir -p /home/source/TMessagesProj/build/outputs/native-debug-symbols && \
     cp -R /home/source/. /home/gradle && \
     cd /home/gradle && \
-    gradle :TMessagesProj_App:bundleBundleAfat_SDK23Release && \
-    gradle :TMessagesProj_App:bundleBundleAfatRelease && \
-    gradle :TMessagesProj_AppStandalone:assembleAfatStandalone && \
-    gradle :TMessagesProj_App:assembleAfatRelease && \
-    gradle :TMessagesProj_AppHuawei:assembleAfatRelease && \
+    chmod +x gradlew && \
+    echo '=== Building Standalone APK ===' && \
+    ./gradlew :TMessagesProj_AppStandalone:assembleAfatStandalone --no-daemon && \
+    echo '=== Building Release APK ===' && \
+    ./gradlew :TMessagesProj_App:assembleAfatRelease --no-daemon && \
+    echo '=== Copying build outputs ===' && \
     cp -R /home/gradle/TMessagesProj_App/build/outputs/apk/. /home/source/TMessagesProj/build/outputs/apk && \
-    cp -R /home/gradle/TMessagesProj_AppHuawei/build/outputs/apk/. /home/source/TMessagesProj/build/outputs/apk && \
     cp -R /home/gradle/TMessagesProj_AppStandalone/build/outputs/apk/. /home/source/TMessagesProj/build/outputs/apk && \
-    cp -R /home/gradle/TMessagesProj_App/build/outputs/bundle/. /home/source/TMessagesProj/build/outputs/bundle
+    echo '=== Build complete ===' \
+"]

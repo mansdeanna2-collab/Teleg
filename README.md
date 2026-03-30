@@ -105,6 +105,9 @@ cp .env.example .env
 # 停止服务
 ./deploy.sh --action stop
 
+# 重启服务
+./deploy.sh --action restart
+
 # 使用 docker compose 直接管理
 docker compose ps
 docker compose logs -f
@@ -114,8 +117,8 @@ docker compose restart
 ### 4. 手动 Docker 部署（后台服务）
 
 ```bash
+# 直接在 Docker 内构建和运行（无需本地 Java 环境）
 cd admin-server
-./gradlew bootJar
 docker build -t telegram-admin .
 docker run -p 8080:8080 \
   -e ADMIN_PASSWORD=your_secure_password \
@@ -132,10 +135,7 @@ docker run -p 8080:8080 \
 cp .env.example .env
 vim .env  # 修改密码和配置
 
-# 构建后端 JAR
-cd admin-server && ./gradlew bootJar && cd ..
-
-# 启动服务
+# 启动服务（自动在 Docker 内编译后端）
 docker compose up -d
 
 # 查看日志
@@ -210,8 +210,7 @@ Teleg/
 ### 前提条件
 
 - 一台拥有公网 IP 的 Linux 服务器
-- 已安装 Docker 和 Docker Compose
-- 已安装 Java 17 或使用 Docker 构建
+- 已安装 Docker 和 Docker Compose（仅需 Docker，无需安装 Java）
 - 服务器开放了 8080 端口（或自定义端口）
 
 ### 快速部署步骤
@@ -241,10 +240,9 @@ chmod +x deploy.sh
 
 1. **检查环境** — 确认 Docker 和 Docker Compose 已安装
 2. **生成配置** — 创建/更新 `.env` 环境变量文件，设置 CORS 白名单
-3. **构建后端** — 编译 admin-server Spring Boot 应用为 JAR
-4. **Docker 部署** — 通过 Docker Compose 启动后端服务容器
-5. **更新客户端** — 修改 `AdminConfig.java` 中的服务器地址为你的 IP
-6. **打包 App** — 使用 Docker 编译 Android APK（输出到 `output/apk/`）
+3. **Docker 构建部署** — 在 Docker 内编译 admin-server 并启动服务容器（无需本地 Java）
+4. **更新客户端** — 修改 `AdminConfig.java` 中的服务器地址为你的 IP
+5. **打包 App** — 使用 Docker 编译 Android APK（输出到 `output/apk/`）
 
 ### 连接关系说明
 

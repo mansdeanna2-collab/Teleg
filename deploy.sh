@@ -33,7 +33,7 @@ usage() {
     echo "用法: $0 --server-ip <IP> [选项]"
     echo ""
     echo "必需参数:"
-    echo "  --server-ip <IP>       服务器公网 IP 地址"
+    echo "  --server-ip <IP>       服务器公网 IP 地址或域名"
     echo ""
     echo "可选参数:"
     echo "  --port <PORT>          服务端口 (默认: 8080)"
@@ -44,6 +44,7 @@ usage() {
     echo "                           stop      - 停止后端服务"
     echo "                           status    - 查看服务状态"
     echo "                           logs      - 查看服务日志"
+    echo "                           restart   - 重启后端服务"
     echo "  --env-file <FILE>      指定 .env 文件路径"
     echo "  -h, --help             显示帮助信息"
     echo ""
@@ -117,9 +118,9 @@ portable_sed_i() {
 generate_random_secret() {
     local length=${1:-64}
     if command -v openssl &> /dev/null; then
-        openssl rand -base64 "$length" | tr -d '\n' | head -c "$length"
+        openssl rand -base64 "$length" | tr -d '\n/+=\r' | head -c "$length"
     else
-        head -c "$length" /dev/urandom | base64 | tr -d '\n' | head -c "$length"
+        head -c 256 /dev/urandom | base64 | tr -d '\n/+=\r' | head -c "$length"
     fi
 }
 
@@ -234,37 +235,17 @@ EOF
     log_info "服务器地址: ${server_url}"
 }
 
-# ---- 构建后端 ----
-build_backend() {
-    log_step "构建后端服务 (Admin Server)"
-
-    cd "$ADMIN_SERVER_DIR"
-
-    # 检查 gradlew 是否存在且可执行
-    if [[ ! -f "gradlew" ]]; then
-        log_error "找不到 gradlew，请确认 admin-server 目录结构完整"
-        exit 1
-    fi
-    chmod +x gradlew
-
-    log_info "正在编译 admin-server.jar ..."
-    ./gradlew bootJar --no-daemon -q
-
-    if [[ -f "build/libs/admin-server.jar" ]]; then
-        log_info "后端 JAR 构建成功: build/libs/admin-server.jar"
-    else
-        log_error "后端 JAR 构建失败"
-        exit 1
-    fi
-
-    cd "$SCRIPT_DIR"
-}
-
-# ---- 部署后端 ----
+# ---- 部署后端（Docker 内构建 + 部署） ----
 deploy_backend() {
-    log_step "Docker 部署后端服务"
+    log_step "Docker 构建并部署后端服务"
 
     cd "$SCRIPT_DIR"
+
+    # 验证 admin-server 目录存在
+    if [[ ! -f "${ADMIN_SERVER_DIR}/build.gradle" ]]; then
+        log_error "找不到 admin-server/build.gradle，请确认项目结构完整"
+        exit 1
+    fi
 
     # 加载 .env 文件
     if [[ -f ".env" ]]; then
@@ -275,24 +256,28 @@ deploy_backend() {
     log_info "停止旧容器（如果存在）..."
     docker_compose_cmd down 2>/dev/null || true
 
-    # 构建并启动容器
-    log_info "构建 Docker 镜像..."
+    # 构建并启动容器（multi-stage Dockerfile 会自动编译 JAR）
+    log_info "构建 Docker 镜像（含后端编译，首次可能需要几分钟）..."
     docker_compose_cmd build
+
+    if [[ $? -ne 0 ]]; then
+        log_error "Docker 镜像构建失败"
+        exit 1
+    fi
 
     log_info "启动容器..."
     docker_compose_cmd up -d
 
     # 等待服务启动
     log_info "等待服务启动..."
-    local max_wait=60
+    local max_wait=90
     local waited=0
+    local started=false
     while [[ $waited -lt $max_wait ]]; do
-        if docker_compose_cmd ps 2>/dev/null | grep -q "healthy\|running"; then
-            # 尝试访问健康检查端点
-            if curl -sf "http://localhost:${SERVER_PORT}/api/client/configs" > /dev/null 2>&1; then
-                log_info "后端服务启动成功！"
-                break
-            fi
+        # 尝试访问健康检查端点
+        if curl -sf "http://localhost:${SERVER_PORT}/api/client/configs" > /dev/null 2>&1; then
+            started=true
+            break
         fi
         sleep 3
         waited=$((waited + 3))
@@ -300,7 +285,9 @@ deploy_backend() {
     done
     echo ""
 
-    if [[ $waited -ge $max_wait ]]; then
+    if [[ "$started" == "true" ]]; then
+        log_info "后端服务启动成功！"
+    else
         log_warn "服务可能仍在启动中，请稍后检查"
         log_info "查看日志: $0 --action logs"
     fi
@@ -326,6 +313,12 @@ update_client_config() {
     fi
 
     local server_url="http://${SERVER_IP}:${SERVER_PORT}"
+
+    # 检查当前值是否已经正确
+    if grep -q "DEFAULT_SERVER_URL = \"${server_url}\"" "$ADMIN_CONFIG_FILE"; then
+        log_info "客户端配置已是最新: DEFAULT_SERVER_URL = \"${server_url}\""
+        return 0
+    fi
 
     # 备份原文件
     cp "$ADMIN_CONFIG_FILE" "${ADMIN_CONFIG_FILE}.bak"
@@ -356,33 +349,45 @@ build_app() {
     update_client_config
 
     log_info "使用 Docker 构建 Android APK..."
-    log_info "（此过程可能需要 10-30 分钟，取决于网络和机器性能）"
+    log_info "（首次构建需要下载 Android SDK，可能需要 20-40 分钟）"
+    log_info "（后续构建会利用 Docker 缓存，速度更快）"
 
     # 创建输出目录
     mkdir -p "${SCRIPT_DIR}/output/apk"
-    mkdir -p "${SCRIPT_DIR}/output/bundle"
 
-    # 使用根目录 Dockerfile 构建
+    # 使用根目录 Dockerfile 构建 Android 编译环境镜像
+    log_info "构建 Android 编译环境镜像..."
     docker build -t telegram-app-builder -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
 
+    if [[ $? -ne 0 ]]; then
+        log_error "Android 编译环境镜像构建失败"
+        exit 1
+    fi
+
+    # 运行编译容器（挂载源码目录）
+    log_info "开始编译 APK..."
     docker run --rm \
         -v "${SCRIPT_DIR}:/home/source" \
         telegram-app-builder
 
-    # 检查输出
-    if ls "${CLIENT_DIR}/build/outputs/apk/"*/*.apk 1> /dev/null 2>&1; then
-        # 复制 APK 到 output 目录
-        find "${CLIENT_DIR}/build/outputs/apk/" -name "*.apk" -exec cp {} "${SCRIPT_DIR}/output/apk/" \;
-        log_info "APK 打包成功！"
-        log_info "APK 输出目录: ${SCRIPT_DIR}/output/apk/"
-        ls -la "${SCRIPT_DIR}/output/apk/"*.apk 2>/dev/null || true
-    else
-        log_warn "未找到 APK 文件，请检查构建日志"
+    if [[ $? -ne 0 ]]; then
+        log_error "APK 编译失败，请检查构建日志"
+        exit 1
     fi
 
-    if ls "${CLIENT_DIR}/build/outputs/bundle/"*/*.aab 1> /dev/null 2>&1; then
-        find "${CLIENT_DIR}/build/outputs/bundle/" -name "*.aab" -exec cp {} "${SCRIPT_DIR}/output/bundle/" \;
-        log_info "Bundle 输出目录: ${SCRIPT_DIR}/output/bundle/"
+    # 收集输出文件
+    local apk_found=false
+    if find "${CLIENT_DIR}/build/outputs/apk/" -name "*.apk" 2>/dev/null | head -1 | grep -q .; then
+        find "${CLIENT_DIR}/build/outputs/apk/" -name "*.apk" -exec cp {} "${SCRIPT_DIR}/output/apk/" \;
+        apk_found=true
+    fi
+
+    if [[ "$apk_found" == "true" ]]; then
+        log_info "APK 打包成功！"
+        log_info "APK 输出目录: ${SCRIPT_DIR}/output/apk/"
+        ls -lh "${SCRIPT_DIR}/output/apk/"*.apk 2>/dev/null || true
+    else
+        log_warn "未找到 APK 文件，请检查构建日志"
     fi
 
     echo ""
@@ -390,7 +395,6 @@ build_app() {
     log_info "App 打包完成！"
     log_info "=========================================="
     log_info "APK 文件: ${SCRIPT_DIR}/output/apk/"
-    log_info "Bundle 文件: ${SCRIPT_DIR}/output/bundle/"
     log_info "客户端连接地址: http://${SERVER_IP}:${SERVER_PORT}"
     log_info "=========================================="
 }
@@ -401,6 +405,14 @@ stop_backend() {
     cd "$SCRIPT_DIR"
     docker_compose_cmd down
     log_info "服务已停止"
+}
+
+# ---- 重启服务 ----
+restart_backend() {
+    log_step "重启后端服务"
+    cd "$SCRIPT_DIR"
+    docker_compose_cmd restart
+    log_info "服务已重启"
 }
 
 # ---- 查看状态 ----
@@ -425,7 +437,7 @@ if [[ -z "$ACTION" ]]; then
     ACTION="all"
 fi
 
-# 对于 stop/status/logs 操作不需要 SERVER_IP
+# 对于 stop/status/logs/restart 操作不需要 SERVER_IP
 case "$ACTION" in
     stop)
         stop_backend
@@ -437,6 +449,10 @@ case "$ACTION" in
         ;;
     logs)
         show_logs
+        exit 0
+        ;;
+    restart)
+        restart_backend
         exit 0
         ;;
 esac
@@ -466,18 +482,15 @@ check_dependencies
 case "$ACTION" in
     all)
         generate_env_file
-        build_backend
         deploy_backend
         build_app
         ;;
     backend)
         generate_env_file
-        build_backend
         deploy_backend
         ;;
     app)
         generate_env_file
-        update_client_config
         build_app
         ;;
     *)
