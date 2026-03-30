@@ -2,19 +2,16 @@
 
 #include "vdrawhelper.h"
 
-extern "C" void pixman_composite_src_n_8888_asm_neon(int32_t w, int32_t h,
-                                                     uint32_t *dst,
-                                                     int32_t   dst_stride,
-                                                     uint32_t  src);
-
-extern "C" void pixman_composite_over_n_8888_asm_neon(int32_t w, int32_t h,
-                                                      uint32_t *dst,
-                                                      int32_t   dst_stride,
-                                                      uint32_t  src);
+#include <arm_neon.h>
 
 void memfill32(uint32_t *dest, uint32_t value, int length)
 {
-    pixman_composite_src_n_8888_asm_neon(length, 1, dest, length, value);
+    uint32x4_t v = vdupq_n_u32(value);
+    int i = 0;
+    for (; i + 4 <= length; i += 4)
+        vst1q_u32(dest + i, v);
+    for (; i < length; i++)
+        dest[i] = value;
 }
 
 void comp_func_solid_SourceOver_neon(uint32_t *dest, int length, uint32_t color,
@@ -22,6 +19,25 @@ void comp_func_solid_SourceOver_neon(uint32_t *dest, int length, uint32_t color,
 {
     if (const_alpha != 255) color = BYTE_MUL(color, const_alpha);
 
-    pixman_composite_over_n_8888_asm_neon(length, 1, dest, length, color);
+    uint32_t ialpha = 255 - (color >> 24);
+    if (ialpha == 0) {
+        memfill32(dest, color, length);
+        return;
+    }
+
+    uint8x8_t vcolor = vreinterpret_u8_u32(vdup_n_u32(color));
+    uint8x8_t via = vdup_n_u8(ialpha);
+
+    int i = 0;
+    for (; i + 2 <= length; i += 2) {
+        uint8x8_t vdst = vreinterpret_u8_u32(vld1_u32(dest + i));
+        uint16x8_t prod = vmull_u8(vdst, via);
+        uint8x8_t blended = vshrn_n_u16(prod, 8);
+        uint8x8_t result = vadd_u8(vcolor, blended);
+        vst1_u32(dest + i, vreinterpret_u32_u8(result));
+    }
+    for (; i < length; i++) {
+        dest[i] = color + BYTE_MUL(dest[i], ialpha);
+    }
 }
 #endif
