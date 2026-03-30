@@ -148,7 +148,7 @@ AUDIO_DECODER_FUNC(jint, ffmpegDecode, jlong context, jobject inputData,
   uint8_t *inputBuffer = (uint8_t *)env->GetDirectBufferAddress(inputData);
   uint8_t *outputBuffer = (uint8_t *)env->GetDirectBufferAddress(outputData);
   AVPacket packet;
-  av_init_packet(&packet);
+  memset(&packet, 0, sizeof(packet));
   packet.data = inputBuffer;
   packet.size = inputSize;
   return decodePacket((AVCodecContext *)context, &packet, outputBuffer,

@@ -1,10 +1,8 @@
 cmake_minimum_required(VERSION 3.10.2)
 
-set(CMAKE_CXX_FLAGS "-std=c++14 -DANDROID -g")
-set(CMAKE_C_FLAGS "-w -std=c11 -DANDROID -D_LARGEFILE_SOURCE=1 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DANDROID -g -ffunction-sections -fdata-sections")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -std=c11 -DANDROID -D_LARGEFILE_SOURCE=1 -g -ffunction-sections -fdata-sections")
 set(CMAKE_ASM_FLAGS "${CFLAGS} -x assembler-with-cpp")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,libtgvoip.a,libtgcalls.a,libtgcalls_tp.a,libtgnet.a,libflac.a,librlottie.a,libsqlite.a,
 ${CMAKE_HOME_DIRECTORY}/ffmpeg/${ANDROID_ABI}/libswscale.a,
 ${CMAKE_HOME_DIRECTORY}/ffmpeg/${ANDROID_ABI}/libavformat.a,
@@ -388,7 +386,8 @@ add_library(${NATIVE_LIB} SHARED
 )
 
 target_compile_options(${NATIVE_LIB} PUBLIC
-        -ffast-math -Os -funroll-loops -ffast-math -fno-strict-aliasing -fno-math-errno)
+        -ffast-math -Os -funroll-loops -ffast-math -fno-strict-aliasing -fno-math-errno
+        -Wno-deprecated-declarations -Wno-error=deprecated-declarations)
 
 target_compile_definitions(${NATIVE_LIB} PUBLIC
         BSD=1 NULL=0 SOCKLEN_T=socklen_t ANDROID_NDK DISABLE_IMPORTGL AVOID_TABLES ANDROID_TILE_BASED_DECODE __STDC_CONSTANT_MACROS ANDROID_ARMV6_IDCT OPUS_BUILD FIXED_POINT USE_ALLOCA restrict= __EMX__ LOCALE_NOT_USED HAVE_LRINT HAVE_LRINTF)

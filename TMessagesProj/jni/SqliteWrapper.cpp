@@ -210,10 +210,10 @@ JNIEXPORT jdouble Java_org_telegram_SQLite_SQLiteCursor_columnDoubleValue(JNIEnv
 JNIEXPORT jstring Java_org_telegram_SQLite_SQLiteCursor_columnStringValue(JNIEnv *env, jobject object, jlong statementHandle, jint columnIndex) {
     sqlite3_stmt *handle = (sqlite3_stmt *) (intptr_t) statementHandle;
     const char *str = (const char *) sqlite3_column_text(handle, columnIndex);
-    if (str != 0) {
+    if (str != nullptr) {
         return env->NewStringUTF(str);
     }
-    return 0;
+    return nullptr;
 }
 
 JNIEXPORT jbyteArray Java_org_telegram_SQLite_SQLiteCursor_columnByteArrayValue(JNIEnv *env, jobject object, jlong statementHandle, jint columnIndex) {

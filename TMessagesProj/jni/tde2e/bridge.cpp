@@ -49,7 +49,7 @@ extern "C" JNIEXPORT jbyteArray Java_org_telegram_messenger_voip_ConferenceCall_
     auto result = tde2e_api::key_to_public_key(private_key);
     if (!result.is_ok()) {
         java_throw(env, result.error());
-        return 0L;
+        return nullptr;
     }
     return java_bytes(env, result.value());
 }
@@ -188,7 +188,7 @@ Java_org_telegram_messenger_voip_ConferenceCall_call_1create_1change_1state_1blo
     auto result = tde2e_api::call_create_change_state_block(call_id, jni_CallState(env, new_state));
     if (!result.is_ok()) {
         java_throw(env, result.error());
-        return 0;
+        return nullptr;
     }
     return java_bytes(env, result.value());
 }
@@ -217,7 +217,7 @@ Java_org_telegram_messenger_voip_ConferenceCall_call_1apply_1block(JNIEnv *env, 
     env->ReleaseByteArrayElements(block, bytes, JNI_ABORT);
     if (!result.is_ok()) {
         java_throw(env, result.error());
-        return 0;
+        return nullptr;
     }
     return java_CallState(env, result.value());
 }
@@ -229,7 +229,7 @@ Java_org_telegram_messenger_voip_ConferenceCall_call_1get_1state(JNIEnv *env, jc
     auto result = tde2e_api::call_get_state(call_id);
     if (!result.is_ok()) {
         java_throw(env, result.error());
-        return 0;
+        return nullptr;
     }
     return java_CallState(env, result.value());
 }
@@ -261,7 +261,7 @@ Java_org_telegram_messenger_voip_ConferenceCall_call_1get_1verification_1state(J
     auto result = tde2e_api::call_get_verification_state(call_id);
     if (!result.is_ok()) {
         java_throw(env, result.error());
-        return 0;
+        return nullptr;
     }
     return java_CallVerificationState(env, result.value());
 }
@@ -279,7 +279,7 @@ Java_org_telegram_messenger_voip_ConferenceCall_call_1receive_1inbound_1message(
     env->ReleaseByteArrayElements(message, bytes, JNI_ABORT);
     if (!result.is_ok()) {
         java_throw(env, result.error());
-        return 0;
+        return nullptr;
     }
     return java_CallVerificationState(env, result.value());
 }
@@ -292,7 +292,7 @@ Java_org_telegram_messenger_voip_ConferenceCall_call_1pull_1outbound_1messages(J
     auto result = tde2e_api::call_pull_outbound_messages(call_id);
     if (!result.is_ok()) {
         java_throw(env, result.error());
-        return 0;
+        return nullptr;
     }
     return java_bytes2d(env, result.value());
 }

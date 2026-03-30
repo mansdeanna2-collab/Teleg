@@ -4,8 +4,7 @@
 #include <limits>
 #include <string>
 #include <unistd.h>
-#include <linux/stat.h>
-#include <asm/fcntl.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <libyuv.h>
 #include <tgnet/FileLog.h>
@@ -145,7 +144,7 @@ void custom_log(void *ptr, int level, const char* fmt, va_list vl){
     av_log_format_line(ptr, level, fmt, vl2, line, sizeof(line), &print_prefix);
     va_end(vl2);
 
-    LOGE(line);
+    LOGE("%s", line);
 }
 
 static enum AVPixelFormat get_format(AVCodecContext *ctx,
@@ -153,8 +152,8 @@ static enum AVPixelFormat get_format(AVCodecContext *ctx,
 {
     const enum AVPixelFormat *p;
 
-    for (p = pix_fmts; *p != -1; p++) {
-        LOGE("available format %d", p);
+    for (p = pix_fmts; *p != AV_PIX_FMT_NONE; p++) {
+        LOGE("available format %d", (int)*p);
     }
 
     return pix_fmts[0];
@@ -517,8 +516,8 @@ extern "C" JNIEXPORT jlong JNICALL Java_org_telegram_ui_Components_AnimatedFileD
         return 0;
     }
 
-    av_init_packet(&info->pkt);
-    info->pkt.data = NULL;
+    memset(&info->pkt, 0, sizeof(info->pkt));
+    info->pkt.data = nullptr;
     info->pkt.size = 0;
 
     jint *dataArr = env->GetIntArrayElements(data, 0);

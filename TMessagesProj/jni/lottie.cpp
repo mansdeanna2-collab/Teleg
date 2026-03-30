@@ -13,8 +13,9 @@
 #include "tgnet/ConnectionsManager.h"
 #include "c_utils.h"
 
-extern "C" {
 using namespace rlottie;
+
+extern "C" {
 
 typedef struct LottieInfo {
 
