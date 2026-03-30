@@ -334,10 +334,10 @@ async function showEditUser(id) {
             <div class="modal" onclick="event.stopPropagation()">
                 <h2>✏️ Edit User</h2>
                 <div class="form-group"><label>Telegram ID</label><input id="edit-user-tid" type="number" value="${u.telegramId || ''}"></div>
-                <div class="form-group"><label>First Name</label><input id="edit-user-fname" value="${escapeHtml(u.firstName) || ''}"></div>
-                <div class="form-group"><label>Last Name</label><input id="edit-user-lname" value="${escapeHtml(u.lastName) || ''}"></div>
-                <div class="form-group"><label>Username</label><input id="edit-user-uname" value="${escapeHtml(u.username) || ''}"></div>
-                <div class="form-group"><label>Phone Number</label><input id="edit-user-phone" value="${escapeHtml(u.phoneNumber) || ''}"></div>
+                <div class="form-group"><label>First Name</label><input id="edit-user-fname" value="${u.firstName || ''}"></div>
+                <div class="form-group"><label>Last Name</label><input id="edit-user-lname" value="${u.lastName || ''}"></div>
+                <div class="form-group"><label>Username</label><input id="edit-user-uname" value="${u.username || ''}"></div>
+                <div class="form-group"><label>Phone Number</label><input id="edit-user-phone" value="${u.phoneNumber || ''}"></div>
                 <div class="form-group"><label>Premium</label><select id="edit-user-premium">
                     <option value="false" ${!u.premium ? 'selected' : ''}>No</option>
                     <option value="true" ${u.premium ? 'selected' : ''}>Yes ⭐</option>

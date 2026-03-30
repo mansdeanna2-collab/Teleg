@@ -111,7 +111,14 @@ public class UserService {
         if (updatedUser.getLastName() != null) existing.setLastName(updatedUser.getLastName());
         if (updatedUser.getUsername() != null) existing.setUsername(updatedUser.getUsername());
         if (updatedUser.getPhoneNumber() != null) existing.setPhoneNumber(updatedUser.getPhoneNumber());
-        if (updatedUser.getTelegramId() != null) existing.setTelegramId(updatedUser.getTelegramId());
+        if (updatedUser.getTelegramId() != null) {
+            // Ensure no other user has this Telegram ID
+            AppUser otherUser = userRepository.findByTelegramId(updatedUser.getTelegramId()).orElse(null);
+            if (otherUser != null && !otherUser.getId().equals(id)) {
+                throw new RuntimeException("Another user already has this Telegram ID");
+            }
+            existing.setTelegramId(updatedUser.getTelegramId());
+        }
         existing.setPremium(updatedUser.isPremium());
         existing.setBot(updatedUser.isBot());
         AppUser saved = userRepository.save(existing);
