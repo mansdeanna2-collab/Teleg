@@ -22,6 +22,7 @@ ADMIN_CONFIG_FILE="${CLIENT_DIR}/src/main/java/org/telegram/messenger/AdminConfi
 # 默认值
 SERVER_IP=""
 SERVER_PORT="8080"
+PORT_EXPLICIT=false
 ACTION=""
 
 # ---- 帮助信息 ----
@@ -30,10 +31,10 @@ usage() {
     echo -e "${BLUE} Telegram 部署脚本${NC}"
     echo -e "${BLUE}============================================${NC}"
     echo ""
-    echo "用法: $0 --server-ip <IP> [选项]"
+    echo "用法: $0 [--server-ip <IP>] [选项]"
     echo ""
-    echo "必需参数:"
-    echo "  --server-ip <IP>       服务器公网 IP 地址或域名"
+    echo "参数:"
+    echo "  --server-ip <IP>       服务器公网 IP 地址或域名（也可在 .env 文件中配置 SERVER_IP）"
     echo ""
     echo "可选参数:"
     echo "  --port <PORT>          服务端口 (默认: 8080)"
@@ -68,6 +69,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --port)
             SERVER_PORT="$2"
+            PORT_EXPLICIT=true
             shift 2
             ;;
         --action)
@@ -87,6 +89,40 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# ---- 从 .env 文件加载配置（命令行参数优先） ----
+load_env_defaults() {
+    local env_file=""
+
+    # 优先使用 --env-file 指定的文件
+    if [[ -n "$ENV_FILE" && -f "$ENV_FILE" ]]; then
+        env_file="$ENV_FILE"
+    elif [[ -f "${SCRIPT_DIR}/.env" ]]; then
+        env_file="${SCRIPT_DIR}/.env"
+    fi
+
+    if [[ -n "$env_file" ]]; then
+        # 如果命令行未提供 SERVER_IP，从 .env 文件读取
+        if [[ -z "$SERVER_IP" ]]; then
+            local env_ip
+            env_ip=$(grep "^SERVER_IP=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '[:space:]')
+            if [[ -n "$env_ip" && "$env_ip" != "YOUR_SERVER_IP_HERE" ]]; then
+                SERVER_IP="$env_ip"
+            fi
+        fi
+
+        # 如果命令行未提供 --port，从 .env 文件读取
+        if [[ "$PORT_EXPLICIT" != "true" ]]; then
+            local env_port
+            env_port=$(grep "^SERVER_PORT=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '[:space:]')
+            if [[ -n "$env_port" ]]; then
+                SERVER_PORT="$env_port"
+            fi
+        fi
+    fi
+}
+
+load_env_defaults
 
 # ---- 工具函数 ----
 log_info() {
@@ -475,7 +511,7 @@ esac
 
 # 其他操作需要 SERVER_IP
 if [[ -z "$SERVER_IP" ]]; then
-    log_error "请指定服务器 IP 地址: --server-ip <IP>"
+    log_error "请指定服务器 IP 地址: --server-ip <IP> 或在 .env 文件中设置 SERVER_IP"
     echo ""
     usage
 fi
