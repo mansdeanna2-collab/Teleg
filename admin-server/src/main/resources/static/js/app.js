@@ -181,16 +181,16 @@ async function loadUsers(page = 0) {
     users.forEach(u => {
         html += `<tr>
             <td>${u.id}</td>
-            <td>@${u.username || '-'}</td>
-            <td>${u.firstName || ''} ${u.lastName || ''}</td>
-            <td>${u.phoneNumber || '-'}</td>
-            <td><span class="badge badge-${u.status.toLowerCase()}">${u.status}</span></td>
+            <td>@${escapeHtml(u.username) || '-'}</td>
+            <td>${escapeHtml(u.firstName) || ''} ${escapeHtml(u.lastName) || ''}</td>
+            <td>${escapeHtml(u.phoneNumber) || '-'}</td>
+            <td><span class="badge badge-${u.status.toLowerCase()}">${escapeHtml(u.status)}</span></td>
             <td>${u.messagesCount}</td>
             <td>${formatDate(u.lastActiveAt)}</td>
             <td class="btn-group">
                 ${u.status === 'BANNED' ?
                     `<button class="btn btn-sm btn-success" onclick="unbanUser(${u.id})">Unban</button>` :
-                    `<button class="btn btn-sm btn-danger" onclick="showBanModal(${u.id}, '${u.username}')">Ban</button>`}
+                    `<button class="btn btn-sm btn-danger" onclick="showBanModal(${u.id}, '${escapeHtml(u.username)}')">Ban</button>`}
                 <button class="btn btn-sm btn-warning" onclick="showUserDetail(${u.id})">Detail</button>
             </td>
         </tr>`;
@@ -298,11 +298,11 @@ async function loadChannels(page = 0) {
     items.forEach(c => {
         html += `<tr>
             <td>${c.id}</td>
-            <td>${c.title}</td>
-            <td>@${c.username || '-'}</td>
+            <td>${escapeHtml(c.title)}</td>
+            <td>@${escapeHtml(c.username) || '-'}</td>
             <td>${c.memberCount}</td>
             <td>${c.messagesCount}</td>
-            <td><span class="badge badge-${c.status.toLowerCase()}">${c.status}</span></td>
+            <td><span class="badge badge-${c.status.toLowerCase()}">${escapeHtml(c.status)}</span></td>
             <td>${c.public ? '✅' : '🔒'}</td>
             <td class="btn-group">
                 ${c.status === 'ACTIVE' ?
@@ -578,11 +578,11 @@ async function loadReports(page = 0) {
     items.forEach(r => {
         html += `<tr>
             <td>${r.id}</td>
-            <td>${r.reporterName || '-'}</td>
-            <td>${r.reportedUserName || '-'}</td>
-            <td>${r.reportType}</td>
-            <td title="${r.description}">${(r.description || '').substring(0, 50)}${r.description && r.description.length > 50 ? '...' : ''}</td>
-            <td><span class="badge badge-${r.status.toLowerCase()}">${r.status}</span></td>
+            <td>${escapeHtml(r.reporterName) || '-'}</td>
+            <td>${escapeHtml(r.reportedUserName) || '-'}</td>
+            <td>${escapeHtml(r.reportType)}</td>
+            <td title="${escapeHtml(r.description)}">${escapeHtml((r.description || '').substring(0, 50))}${r.description && r.description.length > 50 ? '...' : ''}</td>
+            <td><span class="badge badge-${r.status.toLowerCase()}">${escapeHtml(r.status)}</span></td>
             <td>${formatDate(r.createdAt)}</td>
             <td class="btn-group">
                 ${r.status === 'PENDING' || r.status === 'REVIEWING' ? `
@@ -646,13 +646,13 @@ async function loadConfigs() {
 
     configs.forEach(c => {
         html += `<tr>
-            <td><code>${c.configKey}</code></td>
-            <td><strong>${c.configValue}</strong></td>
-            <td>${c.configType}</td>
-            <td>${c.category}</td>
-            <td>${c.description || '-'}</td>
+            <td><code>${escapeHtml(c.configKey)}</code></td>
+            <td><strong>${escapeHtml(c.configValue)}</strong></td>
+            <td>${escapeHtml(c.configType)}</td>
+            <td>${escapeHtml(c.category)}</td>
+            <td>${escapeHtml(c.description) || '-'}</td>
             <td class="btn-group">
-                <button class="btn btn-sm btn-info" onclick="showEditConfig(${c.id}, '${c.configKey}', '${c.configValue}', '${c.configType}')">Edit</button>
+                <button class="btn btn-sm btn-info" onclick="showEditConfig(${c.id}, '${escapeHtml(c.configKey)}', '${escapeHtml(c.configValue)}', '${escapeHtml(c.configType)}')">Edit</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteConfig(${c.id})">Delete</button>
             </td>
         </tr>`;
@@ -762,6 +762,11 @@ async function loadAuditLogs(page = 0) {
 }
 
 // ====== UTILS ======
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     const d = new Date(dateStr);

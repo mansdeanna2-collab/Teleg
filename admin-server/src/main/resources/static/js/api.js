@@ -12,14 +12,23 @@ const API = {
         const opts = { method, headers };
         if (body) opts.body = JSON.stringify(body);
 
-        const res = await fetch(this.baseUrl + path, opts);
-        const data = await res.json();
+        try {
+            const res = await fetch(this.baseUrl + path, opts);
 
-        if (res.status === 403 || res.status === 401) {
-            this.logout();
+            if (res.status === 403 || res.status === 401) {
+                this.logout();
+                return null;
+            }
+
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await res.json();
+            }
+            return null;
+        } catch (e) {
+            console.error('API request failed:', e);
             return null;
         }
-        return data;
     },
 
     get(path) { return this.request('GET', path); },

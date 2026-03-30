@@ -51,7 +51,14 @@ public class UserController {
         try {
             String reason = body.getOrDefault("reason", "Banned by admin");
             String expiresStr = body.get("expiresAt");
-            LocalDateTime expiresAt = expiresStr != null ? LocalDateTime.parse(expiresStr) : null;
+            LocalDateTime expiresAt = null;
+            if (expiresStr != null && !expiresStr.isEmpty()) {
+                try {
+                    expiresAt = LocalDateTime.parse(expiresStr);
+                } catch (Exception parseEx) {
+                    return ResponseEntity.badRequest().body(ApiResponse.error("Invalid date format for expiresAt"));
+                }
+            }
             AppUser user = userService.banUser(id, reason, expiresAt, principal.getName());
             return ResponseEntity.ok(ApiResponse.ok("User banned", user));
         } catch (RuntimeException e) {
