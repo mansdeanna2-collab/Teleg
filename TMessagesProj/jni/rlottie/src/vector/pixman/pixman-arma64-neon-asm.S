@@ -46,7 +46,6 @@
 
 /* Supplementary macro for setting function attributes */
 .macro pixman_asm_function fname
-.func fname
 .global fname
 #ifdef __ELF__
 .hidden fname
