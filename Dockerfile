@@ -9,6 +9,12 @@ ENV ANDROID_VERSION 35
 ENV ANDROID_NDK_HOME ${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}/
 ENV PATH ${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools
 
+# Use root for system-level installations (this is a build-only container)
+USER root
+
+# Install nasm (required for x86/x86_64 native ASM_NASM builds in TMessagesProj JNI)
+RUN apt-get update && apt-get install -y --no-install-recommends nasm && rm -rf /var/lib/apt/lists/*
+
 RUN mkdir "$ANDROID_HOME" .android && \
     cd "$ANDROID_HOME" && \
     curl -o sdk.zip $ANDROID_SDK_URL && \
@@ -21,7 +27,8 @@ RUN $ANDROID_HOME/cmdline-tools/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-t
     "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
     "platforms;android-${ANDROID_VERSION}" \
     "platform-tools" \
-    "ndk;$ANDROID_NDK_VERSION"
+    "ndk;$ANDROID_NDK_VERSION" \
+    "cmake;3.10.2.4988404"
 RUN cp $ANDROID_HOME/build-tools/30.0.3/dx $ANDROID_HOME/build-tools/35.0.0/dx
 RUN cp $ANDROID_HOME/build-tools/30.0.3/lib/dx.jar $ANDROID_HOME/build-tools/35.0.0/lib/dx.jar
 ENV PATH ${ANDROID_NDK_HOME}:$PATH
@@ -31,17 +38,21 @@ ENTRYPOINT ["/bin/bash", "-c", "\
     set -e && \
     echo '=== Preparing build environment ===' && \
     mkdir -p /home/source/TMessagesProj/build/outputs/apk && \
-    mkdir -p /home/source/TMessagesProj/build/outputs/bundle && \
     mkdir -p /home/source/TMessagesProj/build/outputs/native-debug-symbols && \
+    echo '--- Copying source to build directory ---' && \
     cp -R /home/source/. /home/gradle && \
     cd /home/gradle && \
     chmod +x gradlew && \
     echo '=== Building Standalone APK ===' && \
-    ./gradlew :TMessagesProj_AppStandalone:assembleAfatStandalone --no-daemon && \
+    ./gradlew :TMessagesProj_AppStandalone:assembleAfatStandalone --no-daemon --stacktrace && \
     echo '=== Building Release APK ===' && \
-    ./gradlew :TMessagesProj_App:assembleAfatRelease --no-daemon && \
+    ./gradlew :TMessagesProj_App:assembleAfatRelease --no-daemon --stacktrace && \
     echo '=== Copying build outputs ===' && \
-    cp -R /home/gradle/TMessagesProj_App/build/outputs/apk/. /home/source/TMessagesProj/build/outputs/apk && \
-    cp -R /home/gradle/TMessagesProj_AppStandalone/build/outputs/apk/. /home/source/TMessagesProj/build/outputs/apk && \
-    echo '=== Build complete ===' \
+    mkdir -p /home/source/TMessagesProj/build/outputs/apk/release && \
+    mkdir -p /home/source/TMessagesProj/build/outputs/apk/standalone && \
+    find /home/gradle/TMessagesProj_App/build/outputs/apk/ -name '*.apk' -exec cp {} /home/source/TMessagesProj/build/outputs/apk/release/ \\; && \
+    find /home/gradle/TMessagesProj_AppStandalone/build/outputs/apk/ -name '*.apk' -exec cp {} /home/source/TMessagesProj/build/outputs/apk/standalone/ \\; && \
+    echo '=== Build complete ===' && \
+    echo 'Release APKs:' && ls -lh /home/source/TMessagesProj/build/outputs/apk/release/ && \
+    echo 'Standalone APKs:' && ls -lh /home/source/TMessagesProj/build/outputs/apk/standalone/ \
 "]

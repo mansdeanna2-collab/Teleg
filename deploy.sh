@@ -350,14 +350,17 @@ build_app() {
     update_client_config
 
     log_info "使用 Docker 构建 Android APK..."
-    log_info "（首次构建需要下载 Android SDK，可能需要 20-40 分钟）"
+    log_info "（首次构建需要下载 Android SDK + CMake，可能需要 30-60 分钟）"
     log_info "（后续构建会利用 Docker 缓存，速度更快）"
 
     # 创建输出目录
     mkdir -p "${SCRIPT_DIR}/output/apk"
 
+    # 清理旧的构建输出（避免残留）
+    rm -rf "${CLIENT_DIR}/build/outputs/apk" 2>/dev/null || true
+
     # 使用根目录 Dockerfile 构建 Android 编译环境镜像
-    log_info "构建 Android 编译环境镜像..."
+    log_info "构建 Android 编译环境镜像（含 SDK, NDK, CMake）..."
     local build_ok=true
     docker build -t telegram-app-builder -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}" || build_ok=false
 
@@ -367,7 +370,7 @@ build_app() {
     fi
 
     # 运行编译容器（挂载源码目录）
-    log_info "开始编译 APK..."
+    log_info "开始编译 APK（包含 JNI 原生代码编译）..."
     local run_ok=true
     docker run --rm \
         -v "${SCRIPT_DIR}:/home/source" \
@@ -375,18 +378,28 @@ build_app() {
 
     if [[ "$run_ok" != "true" ]]; then
         log_error "APK 编译失败，请检查构建日志"
+        log_info "提示: 可尝试增加 Docker 内存限制 (docker run --memory=8g)"
         exit 1
     fi
 
-    # 收集输出文件
-    local apk_found=false
-    if find "${CLIENT_DIR}/build/outputs/apk/" -name "*.apk" 2>/dev/null | head -1 | grep -q .; then
-        find "${CLIENT_DIR}/build/outputs/apk/" -name "*.apk" -exec cp {} "${SCRIPT_DIR}/output/apk/" \;
-        apk_found=true
-    fi
+    # 收集输出文件（保留不同变体的区分命名）
+    local apk_count=0
+    while IFS= read -r apk_file; do
+        # 从路径中提取变体名称（如 release/app.apk → telegram-release.apk）
+        local relative_path="${apk_file#${CLIENT_DIR}/build/outputs/apk/}"
+        local variant_dir
+        variant_dir=$(dirname "$relative_path")
+        local variant_name
+        variant_name=$(echo "$variant_dir" | tr '/' '-')
+        local target_name="telegram-${variant_name}.apk"
 
-    if [[ "$apk_found" == "true" ]]; then
-        log_info "APK 打包成功！"
+        cp "$apk_file" "${SCRIPT_DIR}/output/apk/${target_name}"
+        log_info "  已收集: ${target_name}"
+        apk_count=$((apk_count + 1))
+    done < <(find "${CLIENT_DIR}/build/outputs/apk/" -name "*.apk" 2>/dev/null)
+
+    if [[ $apk_count -gt 0 ]]; then
+        log_info "APK 打包成功！共生成 ${apk_count} 个 APK"
         log_info "APK 输出目录: ${SCRIPT_DIR}/output/apk/"
         ls -lh "${SCRIPT_DIR}/output/apk/"*.apk 2>/dev/null || true
     else
