@@ -1,0 +1,81 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Read version from gradle.properties
+        id: version
+        run: |
+          if [ ! -f gradle.properties ]; then
+            echo "ERROR: gradle.properties not found"
+            exit 1
+          fi
+          APP_VERSION_NAME=$(grep '^APP_VERSION_NAME=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
+          APP_VERSION_CODE=$(grep '^APP_VERSION_CODE=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
+          if [ -z "$APP_VERSION_NAME" ] || [ -z "$APP_VERSION_CODE" ]; then
+            echo "ERROR: Failed to read APP_VERSION_NAME or APP_VERSION_CODE from gradle.properties"
+            exit 1
+          fi
+          echo "version_name=${APP_VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${APP_VERSION_CODE}" >> "$GITHUB_OUTPUT"
+          echo "Building v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"
+
+      - name: Clean stale build artifacts
+        run: |
+          echo "Cleaning stale build caches to prevent version mismatch..."
+          rm -rf TMessagesProj/build TMessagesProj_App/build TMessagesProj_AppStandalone/build
+          rm -rf TMessagesProj_AppHuawei/build TMessagesProj_AppHockeyApp/build TMessagesProj_AppTests/build
+          rm -rf TMessagesProj/.cxx build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Android build environment image
+        run: docker build -t telegram-app-builder -f Dockerfile .
+
+      - name: Build APKs
+        run: |
+          docker run --rm \
+            -v "$(pwd):/home/source" \
+            telegram-app-builder
+
+      - name: Collect APK artifacts
+        run: |
+          mkdir -p output/apk
+          VERSION="${{ steps.version.outputs.version_name }}"
+          for dir in release standalone; do
+            if [ -d "TMessagesProj/build/outputs/apk/${dir}" ]; then
+              for apk in TMessagesProj/build/outputs/apk/${dir}/*.apk; do
+                [ -f "$apk" ] && cp "$apk" "output/apk/telegram-v${VERSION}-${dir}.apk"
+              done
+            fi
+          done
+          echo "=== Built APKs ==="
+          ls -lh output/apk/ || echo "No APKs found"
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-apk-v${{ steps.version.outputs.version_name }}
+          path: output/apk/*.apk
+          if-no-files-found: error
+          retention-days: 30

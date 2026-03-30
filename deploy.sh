@@ -18,6 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ADMIN_SERVER_DIR="${SCRIPT_DIR}/admin-server"
 CLIENT_DIR="${SCRIPT_DIR}/TMessagesProj"
 ADMIN_CONFIG_FILE="${CLIENT_DIR}/src/main/java/org/telegram/messenger/AdminConfig.java"
+GRADLE_PROPERTIES="${SCRIPT_DIR}/gradle.properties"
 
 # 默认值
 SERVER_IP=""
@@ -121,6 +122,31 @@ generate_random_secret() {
         openssl rand -base64 "$length" | tr -d '\n/+=\r' | head -c "$length"
     else
         head -c 256 /dev/urandom | base64 | tr -d '\n/+=\r' | head -c "$length"
+    fi
+}
+
+# ---- 从 gradle.properties 读取版本信息 ----
+read_gradle_property() {
+    local key="$1"
+    if [[ -f "$GRADLE_PROPERTIES" ]]; then
+        grep "^${key}=" "$GRADLE_PROPERTIES" | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+    fi
+}
+
+get_app_version_info() {
+    APP_VERSION_CODE=$(read_gradle_property "APP_VERSION_CODE")
+    APP_VERSION_NAME=$(read_gradle_property "APP_VERSION_NAME")
+    APP_PACKAGE=$(read_gradle_property "APP_PACKAGE")
+
+    if [[ -z "$APP_VERSION_CODE" || -z "$APP_VERSION_NAME" ]]; then
+        log_error "无法从 gradle.properties 读取版本信息 (APP_VERSION_CODE/APP_VERSION_NAME)"
+        log_error "请确认 ${GRADLE_PROPERTIES} 文件存在且包含正确的版本定义"
+        exit 1
+    fi
+
+    log_info "应用版本: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"
+    if [[ -n "$APP_PACKAGE" ]]; then
+        log_info "应用包名: ${APP_PACKAGE}"
     fi
 }
 
@@ -346,18 +372,31 @@ build_app() {
 
     cd "$SCRIPT_DIR"
 
+    # 读取版本信息
+    get_app_version_info
+
     # 先更新客户端连接配置
     update_client_config
 
     log_info "使用 Docker 构建 Android APK..."
+    log_info "版本: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"
     log_info "（首次构建需要下载 Android SDK + CMake，可能需要 30-60 分钟）"
     log_info "（后续构建会利用 Docker 缓存，速度更快）"
 
     # 创建输出目录
     mkdir -p "${SCRIPT_DIR}/output/apk"
 
-    # 清理旧的构建输出（避免残留）
+    # 清理旧的构建输出和缓存（避免残留旧版本）
+    log_info "清理旧的构建缓存（防止版本不一致）..."
     rm -rf "${CLIENT_DIR}/build/outputs/apk" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_App/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppStandalone/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppHuawei/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppHockeyApp/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppTests/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj/.cxx" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/build" 2>/dev/null || true
 
     # 使用根目录 Dockerfile 构建 Android 编译环境镜像
     log_info "构建 Android 编译环境镜像（含 SDK, NDK, CMake）..."
@@ -382,16 +421,16 @@ build_app() {
         exit 1
     fi
 
-    # 收集输出文件（保留不同变体的区分命名）
+    # 收集输出文件（使用版本号命名）
     local apk_count=0
     while IFS= read -r apk_file; do
-        # 从路径中提取变体名称（如 release/app.apk → telegram-release.apk）
+        # 从路径中提取变体名称（如 release/app.apk → telegram-v12.5.1-release.apk）
         local relative_path="${apk_file#${CLIENT_DIR}/build/outputs/apk/}"
         local variant_dir
         variant_dir=$(dirname "$relative_path")
         local variant_name
         variant_name=$(echo "$variant_dir" | tr '/' '-')
-        local target_name="telegram-${variant_name}.apk"
+        local target_name="telegram-v${APP_VERSION_NAME}-${variant_name}.apk"
 
         cp "$apk_file" "${SCRIPT_DIR}/output/apk/${target_name}"
         log_info "  已收集: ${target_name}"
@@ -400,6 +439,7 @@ build_app() {
 
     if [[ $apk_count -gt 0 ]]; then
         log_info "APK 打包成功！共生成 ${apk_count} 个 APK"
+        log_info "应用版本: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"
         log_info "APK 输出目录: ${SCRIPT_DIR}/output/apk/"
         ls -lh "${SCRIPT_DIR}/output/apk/"*.apk 2>/dev/null || true
     else
@@ -410,6 +450,7 @@ build_app() {
     log_info "=========================================="
     log_info "App 打包完成！"
     log_info "=========================================="
+    log_info "应用版本: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"
     log_info "APK 文件: ${SCRIPT_DIR}/output/apk/"
     log_info "客户端连接地址: http://${SERVER_IP}:${SERVER_PORT}"
     log_info "=========================================="
