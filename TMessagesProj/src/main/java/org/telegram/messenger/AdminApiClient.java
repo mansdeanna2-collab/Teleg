@@ -45,6 +45,7 @@ public class AdminApiClient {
 
     /**
      * Register or update user info on admin server.
+     * Server will reject if user is banned/deleted or registration is disabled.
      */
     public void registerUser(long telegramId, String firstName, String lastName,
                              String username, String phoneNumber, String deviceInfo,
@@ -61,8 +62,15 @@ public class AdminApiClient {
                 body.put("appVersion", appVersion);
 
                 JSONObject result = post("/api/client/register", body);
-                if (callback != null) {
-                    mainHandler.post(() -> callback.onSuccess(result));
+                if (result != null && result.optBoolean("success", false)) {
+                    if (callback != null) {
+                        mainHandler.post(() -> callback.onSuccess(result));
+                    }
+                } else {
+                    String message = result != null ? result.optString("message", "Registration failed") : "Connection failed";
+                    if (callback != null) {
+                        mainHandler.post(() -> callback.onError(message));
+                    }
                 }
             } catch (Exception e) {
                 if (BuildVars.LOGS_ENABLED) {
@@ -76,7 +84,7 @@ public class AdminApiClient {
     }
 
     /**
-     * Send heartbeat to admin server and check ban status.
+     * Send heartbeat to admin server and check ban/restriction status.
      */
     public void sendHeartbeat(long telegramId, HeartbeatCallback callback) {
         executor.execute(() -> {
@@ -90,6 +98,12 @@ public class AdminApiClient {
                     if (callback != null) {
                         mainHandler.post(() -> callback.onResult(status, banReason));
                     }
+                } else if (result != null && !result.optBoolean("success", true)) {
+                    // Server returned an error (e.g., user is banned/deleted)
+                    String message = result.optString("message", "Unknown error");
+                    if (callback != null) {
+                        mainHandler.post(() -> callback.onResult("BANNED", message));
+                    }
                 }
             } catch (Exception e) {
                 if (BuildVars.LOGS_ENABLED) {
@@ -100,7 +114,8 @@ public class AdminApiClient {
     }
 
     /**
-     * Check if user is banned.
+     * Check if user is banned or restricted.
+     * Supports both telegramId and phone number lookup.
      */
     public void checkUserStatus(long telegramId, HeartbeatCallback callback) {
         executor.execute(() -> {
@@ -121,6 +136,34 @@ public class AdminApiClient {
                 }
                 if (callback != null) {
                     mainHandler.post(() -> callback.onResult("ACTIVE", null));
+                }
+            }
+        });
+    }
+
+    /**
+     * Check user status by phone number (for admin-created users who don't have telegramId yet).
+     */
+    public void checkUserStatusByPhone(String phoneNumber, HeartbeatCallback callback) {
+        executor.execute(() -> {
+            try {
+                String encoded = java.net.URLEncoder.encode(phoneNumber, "UTF-8");
+                JSONObject result = get("/api/client/user-status?phoneNumber=" + encoded);
+                if (result != null && result.has("data")) {
+                    JSONObject data = result.getJSONObject("data");
+                    String status = data.optString("status", "UNREGISTERED");
+                    String banReason = data.optString("banReason", null);
+
+                    if (callback != null) {
+                        mainHandler.post(() -> callback.onResult(status, banReason));
+                    }
+                }
+            } catch (Exception e) {
+                if (BuildVars.LOGS_ENABLED) {
+                    FileLog.e("AdminApiClient checkStatusByPhone error", e);
+                }
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onResult("UNREGISTERED", null));
                 }
             }
         });

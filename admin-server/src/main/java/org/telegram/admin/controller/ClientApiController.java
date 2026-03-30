@@ -36,10 +36,18 @@ public class ClientApiController {
 
     /**
      * Register/update user info when client connects.
+     * Checks allow_registration config and rejects banned/deleted users.
      */
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AppUser>> registerUser(@RequestBody AppUser user) {
         try {
+            // Check if new registration is allowed
+            if (user.getTelegramId() != null && userService.findByTelegramIdOptional(user.getTelegramId()) == null) {
+                String allowReg = configService.getValue("allow_registration", "true");
+                if ("false".equalsIgnoreCase(allowReg)) {
+                    return ResponseEntity.badRequest().body(ApiResponse.error("New user registration is currently disabled"));
+                }
+            }
             boolean isNewUser = user.getTelegramId() != null &&
                     userService.findByTelegramIdOptional(user.getTelegramId()) == null;
             AppUser saved = userService.createOrUpdateUser(user);
@@ -56,6 +64,7 @@ public class ClientApiController {
 
     /**
      * Report heartbeat / user activity.
+     * Returns ban/restriction status for enforcement on client side.
      */
     @PostMapping("/heartbeat")
     public ResponseEntity<ApiResponse<Map<String, Object>>> heartbeat(
@@ -65,10 +74,10 @@ public class ClientApiController {
             user.setLastActiveAt(java.time.LocalDateTime.now());
             userService.createOrUpdateUser(user);
 
-            // Check if user is banned
+            // Check if user is banned or restricted
             Map<String, Object> response = new java.util.HashMap<>();
             response.put("status", user.getStatus());
-            if ("BANNED".equals(user.getStatus())) {
+            if ("BANNED".equals(user.getStatus()) || "RESTRICTED".equals(user.getStatus())) {
                 response.put("banReason", user.getBanReason());
                 response.put("banExpiresAt", user.getBanExpiresAt());
             }
@@ -80,20 +89,37 @@ public class ClientApiController {
 
     /**
      * Check user status (for ban enforcement).
+     * Supports lookup by telegramId or phoneNumber.
+     * Returns proper error for unknown users instead of defaulting to ACTIVE.
      */
     @GetMapping("/user-status")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getUserStatus(
-            @RequestParam Long telegramId) {
+            @RequestParam(required = false) Long telegramId,
+            @RequestParam(required = false) String phoneNumber) {
         try {
-            AppUser user = userService.getUserByTelegramId(telegramId);
+            AppUser user = null;
+            if (telegramId != null) {
+                user = userService.findByTelegramIdOptional(telegramId);
+            }
+            if (user == null && phoneNumber != null && !phoneNumber.isEmpty()) {
+                user = userService.findByPhoneNumberOptional(phoneNumber);
+            }
+            if (user == null) {
+                // Unknown user: return UNREGISTERED status so client knows to register
+                Map<String, Object> response = new java.util.HashMap<>();
+                response.put("status", "UNREGISTERED");
+                return ResponseEntity.ok(ApiResponse.ok(response));
+            }
             Map<String, Object> response = new java.util.HashMap<>();
             response.put("status", user.getStatus());
             response.put("banReason", user.getBanReason());
             response.put("banExpiresAt", user.getBanExpiresAt());
+            response.put("telegramId", user.getTelegramId());
+            response.put("username", user.getUsername());
             return ResponseEntity.ok(ApiResponse.ok(response));
         } catch (RuntimeException e) {
             Map<String, Object> defaultResponse = new java.util.HashMap<>();
-            defaultResponse.put("status", "ACTIVE");
+            defaultResponse.put("status", "UNREGISTERED");
             return ResponseEntity.ok(ApiResponse.ok(defaultResponse));
         }
     }

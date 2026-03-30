@@ -37,6 +37,10 @@ public class UserService {
         return userRepository.findByTelegramId(telegramId).orElse(null);
     }
 
+    public AppUser findByPhoneNumberOptional(String phoneNumber) {
+        return userRepository.findByPhoneNumber(phoneNumber).orElse(null);
+    }
+
     public AppUser banUser(Long id, String reason, LocalDateTime expiresAt, String adminUsername) {
         AppUser user = getUserById(id);
         user.setStatus("BANNED");
@@ -73,6 +77,10 @@ public class UserService {
         if (user.getTelegramId() != null) {
             AppUser existing = userRepository.findByTelegramId(user.getTelegramId()).orElse(null);
             if (existing != null) {
+                // Reject registration/update from banned or deleted users
+                if ("BANNED".equals(existing.getStatus()) || "DELETED".equals(existing.getStatus())) {
+                    throw new RuntimeException("User account is " + existing.getStatus().toLowerCase());
+                }
                 existing.setFirstName(user.getFirstName());
                 existing.setLastName(user.getLastName());
                 existing.setUsername(user.getUsername());
@@ -81,6 +89,25 @@ public class UserService {
                 existing.setDeviceInfo(user.getDeviceInfo());
                 existing.setAppVersion(user.getAppVersion());
                 return userRepository.save(existing);
+            }
+        }
+        // For new user registration, also try to find by phone number
+        // (admin may have pre-created the user with phone but no telegramId)
+        if (user.getPhoneNumber() != null && !user.getPhoneNumber().isEmpty()) {
+            AppUser byPhone = userRepository.findByPhoneNumber(user.getPhoneNumber()).orElse(null);
+            if (byPhone != null) {
+                if ("BANNED".equals(byPhone.getStatus()) || "DELETED".equals(byPhone.getStatus())) {
+                    throw new RuntimeException("User account is " + byPhone.getStatus().toLowerCase());
+                }
+                // Link the admin-created record to this telegram user
+                byPhone.setTelegramId(user.getTelegramId());
+                byPhone.setFirstName(user.getFirstName());
+                byPhone.setLastName(user.getLastName());
+                byPhone.setUsername(user.getUsername());
+                byPhone.setLastActiveAt(LocalDateTime.now());
+                byPhone.setDeviceInfo(user.getDeviceInfo());
+                byPhone.setAppVersion(user.getAppVersion());
+                return userRepository.save(byPhone);
             }
         }
         user.setRegisteredAt(LocalDateTime.now());
