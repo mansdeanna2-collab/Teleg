@@ -42,8 +42,8 @@ ENTRYPOINT ["/bin/bash", "-c", "\
     mkdir -p /home/source/TMessagesProj/build/outputs/apk && \
     mkdir -p /home/source/TMessagesProj/build/outputs/native-debug-symbols && \
     echo '--- Reading version from gradle.properties ---' && \
-    APP_VERSION_NAME=$(grep '^APP_VERSION_NAME=' /home/source/gradle.properties | cut -d= -f2 | tr -d '[:space:]') && \
-    APP_VERSION_CODE=$(grep '^APP_VERSION_CODE=' /home/source/gradle.properties | cut -d= -f2 | tr -d '[:space:]') && \
+    APP_VERSION_NAME=$(grep '^APP_VERSION_NAME=' /home/source/gradle.properties | cut -d= -f2- | tr -d '[:space:]') && \
+    APP_VERSION_CODE=$(grep '^APP_VERSION_CODE=' /home/source/gradle.properties | cut -d= -f2- | tr -d '[:space:]') && \
     echo \"Building version: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})\" && \
     echo '--- Copying source to build directory ---' && \
     cp -R /home/source/. /home/gradle && \

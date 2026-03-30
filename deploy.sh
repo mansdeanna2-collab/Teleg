@@ -139,9 +139,9 @@ get_app_version_info() {
     APP_PACKAGE=$(read_gradle_property "APP_PACKAGE")
 
     if [[ -z "$APP_VERSION_CODE" || -z "$APP_VERSION_NAME" ]]; then
-        log_warn "无法从 gradle.properties 读取版本信息"
-        APP_VERSION_CODE="unknown"
-        APP_VERSION_NAME="unknown"
+        log_error "无法从 gradle.properties 读取版本信息 (APP_VERSION_CODE/APP_VERSION_NAME)"
+        log_error "请确认 ${GRADLE_PROPERTIES} 文件存在且包含正确的版本定义"
+        exit 1
     fi
 
     log_info "应用版本: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"

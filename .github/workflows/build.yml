@@ -25,8 +25,16 @@ jobs:
       - name: Read version from gradle.properties
         id: version
         run: |
-          APP_VERSION_NAME=$(grep '^APP_VERSION_NAME=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
-          APP_VERSION_CODE=$(grep '^APP_VERSION_CODE=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          if [ ! -f gradle.properties ]; then
+            echo "ERROR: gradle.properties not found"
+            exit 1
+          fi
+          APP_VERSION_NAME=$(grep '^APP_VERSION_NAME=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
+          APP_VERSION_CODE=$(grep '^APP_VERSION_CODE=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
+          if [ -z "$APP_VERSION_NAME" ] || [ -z "$APP_VERSION_CODE" ]; then
+            echo "ERROR: Failed to read APP_VERSION_NAME or APP_VERSION_CODE from gradle.properties"
+            exit 1
+          fi
           echo "version_name=${APP_VERSION_NAME}" >> "$GITHUB_OUTPUT"
           echo "version_code=${APP_VERSION_CODE}" >> "$GITHUB_OUTPUT"
           echo "Building v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"
