@@ -17,3 +17,5 @@ admin-server/build/
 admin-server/.gradle/
 admin-server/data/
 admin-server/*.iml
+.env
+output/

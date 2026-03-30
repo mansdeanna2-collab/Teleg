@@ -66,17 +66,80 @@ git clone <本仓库地址>
 
 > **客户端连接配置**: 默认连接 `http://10.0.2.2:8080`（Android 模拟器 → 宿主机 localhost）。生产环境请修改 `AdminConfig.java` 中的 `DEFAULT_SERVER_URL`。
 
-### 3. Docker 部署（后台服务）
+### 3. Docker 一键部署（推荐）
+
+使用部署脚本在 Docker 中快速完成后端部署和前端 App 打包：
 
 ```bash
+# 1. 复制环境变量模板并修改配置
+cp .env.example .env
+# 编辑 .env 文件，设置安全的密码和密钥
+
+# 2. 一键部署后端 + 打包 App（将 YOUR_SERVER_IP 替换为你的服务器公网 IP）
+./deploy.sh --server-ip YOUR_SERVER_IP
+
+# 仅部署后端服务
+./deploy.sh --server-ip YOUR_SERVER_IP --action backend
+
+# 仅打包 Android App（会自动设置 App 连接到你的服务器）
+./deploy.sh --server-ip YOUR_SERVER_IP --action app
+
+# 自定义端口
+./deploy.sh --server-ip YOUR_SERVER_IP --port 9090
+```
+
+部署完成后：
+- 管理面板: `http://YOUR_SERVER_IP:8080`
+- 客户端 API: `http://YOUR_SERVER_IP:8080/api/client`
+- 打包的 APK: `output/apk/` 目录
+
+#### 服务管理命令
+
+```bash
+# 查看服务状态
+./deploy.sh --action status
+
+# 查看实时日志
+./deploy.sh --action logs
+
+# 停止服务
+./deploy.sh --action stop
+
+# 重启服务
+./deploy.sh --action restart
+
+# 使用 docker compose 直接管理
+docker compose ps
+docker compose logs -f
+docker compose restart
+```
+
+### 4. 手动 Docker 部署（后台服务）
+
+```bash
+# 直接在 Docker 内构建和运行（无需本地 Java 环境）
 cd admin-server
-./gradlew bootJar
 docker build -t telegram-admin .
 docker run -p 8080:8080 \
   -e ADMIN_PASSWORD=your_secure_password \
   -e JWT_SECRET=your_jwt_secret_key_at_least_64_chars \
   -e DB_PASSWORD=your_db_password \
+  -v telegram-admin-data:/app/data \
   telegram-admin
+```
+
+### 5. Docker Compose 部署
+
+```bash
+# 复制并编辑环境变量
+cp .env.example .env
+vim .env  # 修改密码和配置
+
+# 启动服务（自动在 Docker 内编译后端）
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
 ```
 
 ## 📁 项目结构
@@ -107,6 +170,9 @@ Teleg/
 ├── TMessagesProj_App/               # 主应用构建模块
 ├── TMessagesProj_AppStandalone/     # 独立版构建模块
 ├── TMessagesProj_AppHuawei/         # 华为版构建模块
+├── deploy.sh                        # 一键部署脚本
+├── docker-compose.yml               # Docker Compose 编排文件
+├── .env.example                     # 环境变量模板
 ├── Dockerfile                       # Android 构建环境容器
 └── build.gradle                     # 根构建配置
 ```
@@ -138,6 +204,77 @@ Teleg/
 | 公告获取 | `GET /api/client/announcements` | 获取当前活跃公告列表 |
 | 配置获取 | `GET /api/client/config` | 获取单个远程配置值 |
 | 配置列表 | `GET /api/client/configs` | 获取所有客户端配置 |
+
+## 🐳 生产环境部署指南
+
+### 前提条件
+
+- 一台拥有公网 IP 的 Linux 服务器
+- 已安装 Docker 和 Docker Compose（仅需 Docker，无需安装 Java）
+- 服务器开放了 8080 端口（或自定义端口）
+
+### 快速部署步骤
+
+```bash
+# 1. 克隆项目到服务器
+git clone <仓库地址>
+cd Teleg
+
+# 2. 配置环境变量
+cp .env.example .env
+vim .env
+# 重要：修改以下配置
+#   SERVER_IP=你的服务器公网IP
+#   ADMIN_PASSWORD=安全的管理员密码
+#   JWT_SECRET=至少64个字符的随机密钥
+#   DB_PASSWORD=安全的数据库密码
+
+# 3. 执行一键部署
+chmod +x deploy.sh
+./deploy.sh --server-ip 你的服务器公网IP
+```
+
+### 部署脚本说明
+
+`deploy.sh` 会自动执行以下操作：
+
+1. **检查环境** — 确认 Docker 和 Docker Compose 已安装
+2. **生成配置** — 创建/更新 `.env` 环境变量文件，设置 CORS 白名单
+3. **Docker 构建部署** — 在 Docker 内编译 admin-server 并启动服务容器（无需本地 Java）
+4. **更新客户端** — 修改 `AdminConfig.java` 中的服务器地址为你的 IP
+5. **打包 App** — 使用 Docker 编译 Android APK（输出到 `output/apk/`）
+
+### 连接关系说明
+
+```
+┌──────────────────────┐
+│   Android App (APK)  │
+│  AdminConfig.java:   │
+│  DEFAULT_SERVER_URL   │─────────────┐
+│  = http://IP:PORT    │             │
+└──────────────────────┘             │  HTTP
+                                     ▼
+                            ┌─────────────────┐
+                            │  Docker 容器      │
+                            │  Admin Server    │
+                            │  端口: 8080       │
+                            │                  │
+                            │ /api/client/*    │◄── App 免认证访问
+                            │ /api/*           │◄── 管理面板 JWT 认证
+                            │ /index.html      │◄── Web 管理面板
+                            └────────┬─────────┘
+                                     │
+                              ┌──────▼──────┐
+                              │  H2 数据库   │
+                              │ /app/data/   │
+                              └─────────────┘
+```
+
+部署脚本会自动处理：
+- ✅ 将 `AdminConfig.java` 中的 `DEFAULT_SERVER_URL` 设置为 `http://你的IP:端口`
+- ✅ 将 CORS 白名单添加服务器地址，确保 Web 面板正常工作
+- ✅ 后端数据持久化到 Docker Volume，重启不丢失数据
+- ✅ 容器健康检查和自动重启
 
 ## 🔒 安全说明
 
