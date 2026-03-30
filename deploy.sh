@@ -104,6 +104,25 @@ log_step() {
     echo -e "\n${BLUE}========== $1 ==========${NC}\n"
 }
 
+# 跨平台 sed -i 封装（兼容 macOS 和 Linux）
+portable_sed_i() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
+# 生成随机密钥
+generate_random_secret() {
+    local length=${1:-64}
+    if command -v openssl &> /dev/null; then
+        openssl rand -base64 "$length" | tr -d '\n' | head -c "$length"
+    else
+        head -c "$length" /dev/urandom | base64 | tr -d '\n' | head -c "$length"
+    fi
+}
+
 # ---- 检查依赖 ----
 check_dependencies() {
     log_step "检查环境依赖"
@@ -160,30 +179,37 @@ generate_env_file() {
             log_info "从 .env.example 模板生成 .env 文件"
         else
             log_info "创建新的 .env 文件"
+            local random_jwt
+            random_jwt=$(generate_random_secret 64)
+            local random_db_pass
+            random_db_pass=$(generate_random_secret 16)
+            local random_admin_pass
+            random_admin_pass=$(generate_random_secret 16)
             cat > "$env_file" << EOF
 SERVER_IP=${SERVER_IP}
 SERVER_PORT=${SERVER_PORT}
 DB_USERNAME=sa
-DB_PASSWORD=admin123
-JWT_SECRET=TelegramAdminSecretKey2024ForJWTTokenGeneration1234567890ABCDEF
+DB_PASSWORD=${random_db_pass}
+JWT_SECRET=${random_jwt}
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=${random_admin_pass}
 ADMIN_EMAIL=admin@telegram.local
 CORS_ORIGINS=http://${SERVER_IP}:${SERVER_PORT}
 SPRING_PROFILES_ACTIVE=production
 EOF
+            log_warn "已生成随机密码，请查看 .env 文件并记录管理员密码"
         fi
     fi
 
     # 更新 .env 文件中的 SERVER_IP 和 PORT
     if grep -q "^SERVER_IP=" "$env_file"; then
-        sed -i "s|^SERVER_IP=.*|SERVER_IP=${SERVER_IP}|" "$env_file"
+        portable_sed_i "s|^SERVER_IP=.*|SERVER_IP=${SERVER_IP}|" "$env_file"
     else
         echo "SERVER_IP=${SERVER_IP}" >> "$env_file"
     fi
 
     if grep -q "^SERVER_PORT=" "$env_file"; then
-        sed -i "s|^SERVER_PORT=.*|SERVER_PORT=${SERVER_PORT}|" "$env_file"
+        portable_sed_i "s|^SERVER_PORT=.*|SERVER_PORT=${SERVER_PORT}|" "$env_file"
     else
         echo "SERVER_PORT=${SERVER_PORT}" >> "$env_file"
     fi
@@ -195,9 +221,9 @@ EOF
         current_cors=$(grep "^CORS_ORIGINS=" "$env_file" | cut -d'=' -f2-)
         if [[ "$current_cors" != *"$server_url"* ]]; then
             if [[ -z "$current_cors" || "$current_cors" == "http://localhost:8080" ]]; then
-                sed -i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=${server_url}|" "$env_file"
+                portable_sed_i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=${server_url}|" "$env_file"
             else
-                sed -i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=${current_cors},${server_url}|" "$env_file"
+                portable_sed_i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=${current_cors},${server_url}|" "$env_file"
             fi
         fi
     else
@@ -251,7 +277,7 @@ deploy_backend() {
 
     # 构建并启动容器
     log_info "构建 Docker 镜像..."
-    docker_compose_cmd build --no-cache
+    docker_compose_cmd build
 
     log_info "启动容器..."
     docker_compose_cmd up -d
@@ -305,7 +331,7 @@ update_client_config() {
     cp "$ADMIN_CONFIG_FILE" "${ADMIN_CONFIG_FILE}.bak"
 
     # 更新 DEFAULT_SERVER_URL
-    sed -i "s|private static final String DEFAULT_SERVER_URL = \".*\";|private static final String DEFAULT_SERVER_URL = \"${server_url}\";|" "$ADMIN_CONFIG_FILE"
+    portable_sed_i "s|private static final String DEFAULT_SERVER_URL = \".*\";|private static final String DEFAULT_SERVER_URL = \"${server_url}\";|" "$ADMIN_CONFIG_FILE"
 
     # 验证修改
     if grep -q "DEFAULT_SERVER_URL = \"${server_url}\"" "$ADMIN_CONFIG_FILE"; then
