@@ -287,11 +287,11 @@ function showCreateUser() {
         <div class="modal-overlay" onclick="closeModal(event)">
             <div class="modal" onclick="event.stopPropagation()">
                 <h2>➕ Add New User</h2>
-                <div class="form-group"><label>Telegram ID <small>(required, must be unique)</small></label><input id="new-user-tid" type="number" placeholder="e.g. 100001"></div>
+                <div class="form-group"><label>Telegram ID <small>(optional, auto-linked when user opens app)</small></label><input id="new-user-tid" type="number" placeholder="e.g. 100001"></div>
                 <div class="form-group"><label>First Name</label><input id="new-user-fname" placeholder="First name"></div>
                 <div class="form-group"><label>Last Name</label><input id="new-user-lname" placeholder="Last name"></div>
                 <div class="form-group"><label>Username</label><input id="new-user-uname" placeholder="Username (no @)"></div>
-                <div class="form-group"><label>Phone Number</label><input id="new-user-phone" placeholder="+8613800001111"></div>
+                <div class="form-group"><label>Phone Number <small>(used to match user when they open app)</small></label><input id="new-user-phone" placeholder="+8613800001111"></div>
                 <div class="form-group"><label>Premium</label><select id="new-user-premium">
                     <option value="false">No</option><option value="true">Yes ⭐</option>
                 </select></div>
@@ -308,13 +308,14 @@ function showCreateUser() {
 
 async function createUser() {
     const telegramId = document.getElementById('new-user-tid').value;
-    if (!telegramId) { showToast('Telegram ID is required', 'error'); return; }
+    const phoneNumber = document.getElementById('new-user-phone').value;
+    if (!telegramId && !phoneNumber) { showToast('Either Telegram ID or Phone Number is required', 'error'); return; }
     const body = {
-        telegramId: parseInt(telegramId),
+        telegramId: telegramId ? parseInt(telegramId) : null,
         firstName: document.getElementById('new-user-fname').value || null,
         lastName: document.getElementById('new-user-lname').value || null,
         username: document.getElementById('new-user-uname').value || null,
-        phoneNumber: document.getElementById('new-user-phone').value || null,
+        phoneNumber: phoneNumber || null,
         premium: document.getElementById('new-user-premium').value === 'true',
         bot: document.getElementById('new-user-bot').value === 'true',
         status: 'ACTIVE'

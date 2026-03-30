@@ -98,7 +98,7 @@ public class AdminApiClient {
                     if (callback != null) {
                         mainHandler.post(() -> callback.onResult(status, banReason));
                     }
-                } else if (result != null && !result.optBoolean("success", true)) {
+                } else if (result != null && !result.optBoolean("success", false)) {
                     // Server returned an error (e.g., user is banned/deleted)
                     String message = result.optString("message", "Unknown error");
                     if (callback != null) {

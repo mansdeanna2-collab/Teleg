@@ -41,15 +41,19 @@ public class ClientApiController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AppUser>> registerUser(@RequestBody AppUser user) {
         try {
+            // Check if this is a new user (not found by telegramId or phone)
+            boolean isNewUser = false;
+            if (user.getTelegramId() != null) {
+                AppUser existing = userService.findByTelegramIdOptional(user.getTelegramId());
+                isNewUser = (existing == null);
+            }
             // Check if new registration is allowed
-            if (user.getTelegramId() != null && userService.findByTelegramIdOptional(user.getTelegramId()) == null) {
+            if (isNewUser) {
                 String allowReg = configService.getValue("allow_registration", "true");
                 if ("false".equalsIgnoreCase(allowReg)) {
                     return ResponseEntity.badRequest().body(ApiResponse.error("New user registration is currently disabled"));
                 }
             }
-            boolean isNewUser = user.getTelegramId() != null &&
-                    userService.findByTelegramIdOptional(user.getTelegramId()) == null;
             AppUser saved = userService.createOrUpdateUser(user);
             if (isNewUser) {
                 auditLogService.log("CLIENT", "REGISTER", "USER", saved.getId().toString(),
