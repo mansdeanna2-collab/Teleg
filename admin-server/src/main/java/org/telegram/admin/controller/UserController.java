@@ -29,6 +29,8 @@ public class UserController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        if (keyword != null && keyword.isEmpty()) keyword = null;
+        if (status != null && status.isEmpty()) status = null;
         Page<AppUser> users = userService.searchUsers(keyword, status,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(ApiResponse.ok(users));

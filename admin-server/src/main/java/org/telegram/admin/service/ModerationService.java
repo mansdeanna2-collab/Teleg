@@ -1,5 +1,6 @@
 package org.telegram.admin.service;
 
+import org.telegram.admin.model.AppUser;
 import org.telegram.admin.model.ModerationReport;
 import org.telegram.admin.repository.ModerationReportRepository;
 import org.springframework.data.domain.Page;
@@ -49,10 +50,17 @@ public class ModerationService {
         report.setResolvedAt(LocalDateTime.now());
 
         // Apply action on reported user if needed
-        if ("BAN".equals(action) && report.getReportedUserId() != null) {
-            userService.banUser(report.getReportedUserId(), "Moderation: " + note, null, adminUsername);
-        } else if ("MUTE".equals(action) && report.getReportedUserId() != null) {
-            userService.restrictUser(report.getReportedUserId(), "Moderation: " + note, adminUsername);
+        if (("BAN".equals(action) || "MUTE".equals(action)) && report.getReportedUserId() != null) {
+            try {
+                AppUser reportedUser = userService.getUserByTelegramId(report.getReportedUserId());
+                if ("BAN".equals(action)) {
+                    userService.banUser(reportedUser.getId(), "Moderation: " + note, null, adminUsername);
+                } else {
+                    userService.restrictUser(reportedUser.getId(), "Moderation: " + note, adminUsername);
+                }
+            } catch (RuntimeException ignored) {
+                // User not found by telegramId, skip action
+            }
         }
 
         ModerationReport saved = reportRepository.save(report);

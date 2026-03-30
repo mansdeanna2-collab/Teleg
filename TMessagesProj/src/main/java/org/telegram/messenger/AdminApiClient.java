@@ -186,7 +186,7 @@ public class AdminApiClient {
     public void getConfig(String key, ConfigCallback callback) {
         executor.execute(() -> {
             try {
-                JSONObject result = get("/api/client/config?key=" + key);
+                JSONObject result = get("/api/client/config?key=" + java.net.URLEncoder.encode(key, "UTF-8"));
                 if (result != null && result.has("data")) {
                     JSONObject data = result.getJSONObject("data");
                     String value = data.optString("value", null);
@@ -243,7 +243,12 @@ public class AdminApiClient {
         if (code >= 200 && code < 300) {
             reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
         } else {
-            reader = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+            java.io.InputStream errorStream = conn.getErrorStream();
+            if (errorStream == null) {
+                conn.disconnect();
+                throw new Exception("HTTP error " + code + " with no response body");
+            }
+            reader = new BufferedReader(new InputStreamReader(errorStream));
         }
 
         StringBuilder sb = new StringBuilder();
