@@ -175,12 +175,13 @@ async function loadUsers(page = 0) {
     const totalPages = res.data.totalPages;
 
     let html = `<table class="data-table"><thead><tr>
-        <th>ID</th><th>Username</th><th>Name</th><th>Phone</th><th>Status</th><th>Messages</th><th>Last Active</th><th>Actions</th>
+        <th>ID</th><th>Telegram ID</th><th>Username</th><th>Name</th><th>Phone</th><th>Status</th><th>Messages</th><th>Last Active</th><th>Actions</th>
     </tr></thead><tbody>`;
 
     users.forEach(u => {
         html += `<tr>
             <td>${u.id}</td>
+            <td>${u.telegramId || '-'}</td>
             <td>@${escapeHtml(u.username) || '-'}</td>
             <td>${escapeHtml(u.firstName) || ''} ${escapeHtml(u.lastName) || ''}</td>
             <td>${escapeHtml(u.phoneNumber) || '-'}</td>
@@ -191,6 +192,7 @@ async function loadUsers(page = 0) {
                 ${u.status === 'BANNED' ?
                     `<button class="btn btn-sm btn-success" onclick="unbanUser(${u.id})">Unban</button>` :
                     `<button class="btn btn-sm btn-danger" onclick="showBanModal(${u.id}, '${escapeHtml(u.username)}')">Ban</button>`}
+                <button class="btn btn-sm btn-info" onclick="showEditUser(${u.id})">Edit</button>
                 <button class="btn btn-sm btn-warning" onclick="showUserDetail(${u.id})">Detail</button>
             </td>
         </tr>`;
@@ -274,9 +276,98 @@ async function showUserDetail(id) {
                 </table>
                 <div class="modal-actions">
                     <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+                    <button class="btn btn-primary" onclick="closeModal(); showEditUser(${u.id})">✏️ Edit</button>
                 </div>
             </div>
         </div>`;
+}
+
+function showCreateUser() {
+    document.getElementById('modal-container').innerHTML = `
+        <div class="modal-overlay" onclick="closeModal(event)">
+            <div class="modal" onclick="event.stopPropagation()">
+                <h2>➕ Add New User</h2>
+                <div class="form-group"><label>Telegram ID <small>(optional, auto-linked when user opens app)</small></label><input id="new-user-tid" type="number" placeholder="e.g. 100001"></div>
+                <div class="form-group"><label>First Name</label><input id="new-user-fname" placeholder="First name"></div>
+                <div class="form-group"><label>Last Name</label><input id="new-user-lname" placeholder="Last name"></div>
+                <div class="form-group"><label>Username</label><input id="new-user-uname" placeholder="Username (no @)"></div>
+                <div class="form-group"><label>Phone Number <small>(used to match user when they open app)</small></label><input id="new-user-phone" placeholder="+8613800001111"></div>
+                <div class="form-group"><label>Premium</label><select id="new-user-premium">
+                    <option value="false">No</option><option value="true">Yes ⭐</option>
+                </select></div>
+                <div class="form-group"><label>Bot</label><select id="new-user-bot">
+                    <option value="false">No</option><option value="true">Yes 🤖</option>
+                </select></div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="createUser()">Create User</button>
+                </div>
+            </div>
+        </div>`;
+}
+
+async function createUser() {
+    const telegramId = document.getElementById('new-user-tid').value;
+    const phoneNumber = document.getElementById('new-user-phone').value;
+    if (!telegramId && !phoneNumber) { showToast('Either Telegram ID or Phone Number is required', 'error'); return; }
+    const body = {
+        telegramId: telegramId ? parseInt(telegramId) : null,
+        firstName: document.getElementById('new-user-fname').value || null,
+        lastName: document.getElementById('new-user-lname').value || null,
+        username: document.getElementById('new-user-uname').value || null,
+        phoneNumber: phoneNumber || null,
+        premium: document.getElementById('new-user-premium').value === 'true',
+        bot: document.getElementById('new-user-bot').value === 'true',
+        status: 'ACTIVE'
+    };
+    const res = await API.post('/api/users', body);
+    if (res?.success) { showToast('User created successfully'); closeModal(); loadUsers(userPage); }
+    else showToast(res?.message || 'Failed to create user', 'error');
+}
+
+async function showEditUser(id) {
+    const res = await API.get(`/api/users/${id}`);
+    if (!res?.success) return;
+    const u = res.data;
+
+    document.getElementById('modal-container').innerHTML = `
+        <div class="modal-overlay" onclick="closeModal(event)">
+            <div class="modal" onclick="event.stopPropagation()">
+                <h2>✏️ Edit User</h2>
+                <div class="form-group"><label>Telegram ID</label><input id="edit-user-tid" type="number" value="${u.telegramId || ''}"></div>
+                <div class="form-group"><label>First Name</label><input id="edit-user-fname" value="${u.firstName || ''}"></div>
+                <div class="form-group"><label>Last Name</label><input id="edit-user-lname" value="${u.lastName || ''}"></div>
+                <div class="form-group"><label>Username</label><input id="edit-user-uname" value="${u.username || ''}"></div>
+                <div class="form-group"><label>Phone Number</label><input id="edit-user-phone" value="${u.phoneNumber || ''}"></div>
+                <div class="form-group"><label>Premium</label><select id="edit-user-premium">
+                    <option value="false" ${!u.premium ? 'selected' : ''}>No</option>
+                    <option value="true" ${u.premium ? 'selected' : ''}>Yes ⭐</option>
+                </select></div>
+                <div class="form-group"><label>Bot</label><select id="edit-user-bot">
+                    <option value="false" ${!u.bot ? 'selected' : ''}>No</option>
+                    <option value="true" ${u.bot ? 'selected' : ''}>Yes 🤖</option>
+                </select></div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="updateUser(${id})">Save Changes</button>
+                </div>
+            </div>
+        </div>`;
+}
+
+async function updateUser(id) {
+    const body = {
+        telegramId: parseInt(document.getElementById('edit-user-tid').value) || null,
+        firstName: document.getElementById('edit-user-fname').value || null,
+        lastName: document.getElementById('edit-user-lname').value || null,
+        username: document.getElementById('edit-user-uname').value || null,
+        phoneNumber: document.getElementById('edit-user-phone').value || null,
+        premium: document.getElementById('edit-user-premium').value === 'true',
+        bot: document.getElementById('edit-user-bot').value === 'true'
+    };
+    const res = await API.put(`/api/users/${id}`, body);
+    if (res?.success) { showToast('User updated successfully'); closeModal(); loadUsers(userPage); }
+    else showToast(res?.message || 'Failed to update user', 'error');
 }
 
 // ====== CHANNELS ======

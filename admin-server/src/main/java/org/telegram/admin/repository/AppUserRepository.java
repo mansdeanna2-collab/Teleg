@@ -11,6 +11,7 @@ import java.util.Optional;
 
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     Optional<AppUser> findByTelegramId(Long telegramId);
+    Optional<AppUser> findByPhoneNumber(String phoneNumber);
 
     @Query("SELECT u FROM AppUser u WHERE " +
            "(:keyword IS NULL OR LOWER(u.firstName) LIKE LOWER(CONCAT('%',:keyword,'%')) " +

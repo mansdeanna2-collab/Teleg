@@ -29,6 +29,8 @@ public class UserController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        if (keyword != null && keyword.isEmpty()) keyword = null;
+        if (status != null && status.isEmpty()) status = null;
         Page<AppUser> users = userService.searchUsers(keyword, status,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(ApiResponse.ok(users));
@@ -38,6 +40,31 @@ public class UserController {
     public ResponseEntity<ApiResponse<AppUser>> getUser(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(ApiResponse.ok(userService.getUserById(id)));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<AppUser>> createUser(
+            @RequestBody AppUser user,
+            Principal principal) {
+        try {
+            AppUser saved = userService.createUserByAdmin(user, principal.getName());
+            return ResponseEntity.ok(ApiResponse.ok("User created", saved));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<AppUser>> updateUser(
+            @PathVariable Long id,
+            @RequestBody AppUser user,
+            Principal principal) {
+        try {
+            AppUser saved = userService.updateUserByAdmin(id, user, principal.getName());
+            return ResponseEntity.ok(ApiResponse.ok("User updated", saved));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
