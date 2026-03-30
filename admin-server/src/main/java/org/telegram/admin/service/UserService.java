@@ -33,6 +33,10 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+    public AppUser findByTelegramIdOptional(Long telegramId) {
+        return userRepository.findByTelegramId(telegramId).orElse(null);
+    }
+
     public AppUser banUser(Long id, String reason, LocalDateTime expiresAt, String adminUsername) {
         AppUser user = getUserById(id);
         user.setStatus("BANNED");
@@ -82,6 +86,38 @@ public class UserService {
         user.setRegisteredAt(LocalDateTime.now());
         user.setLastActiveAt(LocalDateTime.now());
         return userRepository.save(user);
+    }
+
+    public AppUser createUserByAdmin(AppUser user, String adminUsername) {
+        if (user.getTelegramId() != null) {
+            if (userRepository.findByTelegramId(user.getTelegramId()).isPresent()) {
+                throw new RuntimeException("User with this Telegram ID already exists");
+            }
+        }
+        user.setRegisteredAt(LocalDateTime.now());
+        user.setLastActiveAt(LocalDateTime.now());
+        if (user.getStatus() == null) {
+            user.setStatus("ACTIVE");
+        }
+        AppUser saved = userRepository.save(user);
+        auditLogService.log(adminUsername, "CREATE", "USER", saved.getId().toString(),
+                "Created user: " + user.getUsername() + " (telegramId: " + user.getTelegramId() + ")", null);
+        return saved;
+    }
+
+    public AppUser updateUserByAdmin(Long id, AppUser updatedUser, String adminUsername) {
+        AppUser existing = getUserById(id);
+        if (updatedUser.getFirstName() != null) existing.setFirstName(updatedUser.getFirstName());
+        if (updatedUser.getLastName() != null) existing.setLastName(updatedUser.getLastName());
+        if (updatedUser.getUsername() != null) existing.setUsername(updatedUser.getUsername());
+        if (updatedUser.getPhoneNumber() != null) existing.setPhoneNumber(updatedUser.getPhoneNumber());
+        if (updatedUser.getTelegramId() != null) existing.setTelegramId(updatedUser.getTelegramId());
+        existing.setPremium(updatedUser.isPremium());
+        existing.setBot(updatedUser.isBot());
+        AppUser saved = userRepository.save(existing);
+        auditLogService.log(adminUsername, "UPDATE", "USER", id.toString(),
+                "Updated user: " + existing.getUsername(), null);
+        return saved;
     }
 
     public void deleteUser(Long id, String adminUsername) {

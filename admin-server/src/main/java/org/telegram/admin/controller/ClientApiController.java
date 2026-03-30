@@ -22,13 +22,16 @@ public class ClientApiController {
     private final ModerationService moderationService;
     private final AnnouncementService announcementService;
     private final ConfigService configService;
+    private final AuditLogService auditLogService;
 
     public ClientApiController(UserService userService, ModerationService moderationService,
-                                AnnouncementService announcementService, ConfigService configService) {
+                                AnnouncementService announcementService, ConfigService configService,
+                                AuditLogService auditLogService) {
         this.userService = userService;
         this.moderationService = moderationService;
         this.announcementService = announcementService;
         this.configService = configService;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -37,7 +40,14 @@ public class ClientApiController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AppUser>> registerUser(@RequestBody AppUser user) {
         try {
+            boolean isNewUser = user.getTelegramId() != null &&
+                    userService.findByTelegramIdOptional(user.getTelegramId()) == null;
             AppUser saved = userService.createOrUpdateUser(user);
+            if (isNewUser) {
+                auditLogService.log("CLIENT", "REGISTER", "USER", saved.getId().toString(),
+                        "New user registered via client: " + saved.getUsername() +
+                        " (telegramId: " + saved.getTelegramId() + ")", null);
+            }
             return ResponseEntity.ok(ApiResponse.ok(saved));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));

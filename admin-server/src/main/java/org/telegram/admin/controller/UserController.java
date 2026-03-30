@@ -45,6 +45,31 @@ public class UserController {
         }
     }
 
+    @PostMapping
+    public ResponseEntity<ApiResponse<AppUser>> createUser(
+            @RequestBody AppUser user,
+            Principal principal) {
+        try {
+            AppUser saved = userService.createUserByAdmin(user, principal.getName());
+            return ResponseEntity.ok(ApiResponse.ok("User created", saved));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<AppUser>> updateUser(
+            @PathVariable Long id,
+            @RequestBody AppUser user,
+            Principal principal) {
+        try {
+            AppUser saved = userService.updateUserByAdmin(id, user, principal.getName());
+            return ResponseEntity.ok(ApiResponse.ok("User updated", saved));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @PostMapping("/{id}/ban")
     public ResponseEntity<ApiResponse<AppUser>> banUser(
             @PathVariable Long id,
