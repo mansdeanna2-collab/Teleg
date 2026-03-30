@@ -240,27 +240,6 @@ fname:
     umull      v11.8h, v22.8b, v7.8b
 .endm
 
-generate_composite_function \
-    pixman_composite_over_8888_8888_asm_neon, 32, 0, 32, \
-    FLAG_DST_READWRITE | FLAG_DEINTERLEAVE_32BPP, \
-    8, /* number of pixels, processed in a single block */ \
-    5, /* prefetch distance */ \
-    default_init, \
-    default_cleanup, \
-    pixman_composite_over_8888_8888_process_pixblock_head, \
-    pixman_composite_over_8888_8888_process_pixblock_tail, \
-    pixman_composite_over_8888_8888_process_pixblock_tail_head
-
-generate_composite_function_single_scanline \
-    pixman_composite_scanline_over_asm_neon, 32, 0, 32, \
-    FLAG_DST_READWRITE | FLAG_DEINTERLEAVE_32BPP, \
-    8, /* number of pixels, processed in a single block */ \
-    default_init, \
-    default_cleanup, \
-    pixman_composite_over_8888_8888_process_pixblock_head, \
-    pixman_composite_over_8888_8888_process_pixblock_tail, \
-    pixman_composite_over_8888_8888_process_pixblock_tail_head
-
 /******************************************************************************/
 
 .macro pixman_composite_over_n_8888_process_pixblock_head
@@ -380,35 +359,6 @@ generate_composite_function \
     pixman_composite_src_n_8888_process_pixblock_head, \
     pixman_composite_src_n_8888_process_pixblock_tail, \
     pixman_composite_src_n_8888_process_pixblock_tail_head, \
-    0, /* dst_w_basereg */ \
-    0, /* dst_r_basereg */ \
-    0, /* src_basereg   */ \
-    0  /* mask_basereg  */
-
-/******************************************************************************/
-
-.macro pixman_composite_src_8888_8888_process_pixblock_head
-.endm
-
-.macro pixman_composite_src_8888_8888_process_pixblock_tail
-.endm
-
-.macro pixman_composite_src_8888_8888_process_pixblock_tail_head
-    st1  {v0.2s, v1.2s, v2.2s, v3.2s}, [DST_W], #32
-    fetch_src_pixblock
-    cache_preload 8, 8
-.endm
-
-generate_composite_function \
-    pixman_composite_src_8888_8888_asm_neon, 32, 0, 32, \
-    FLAG_DST_WRITEONLY, \
-    8, /* number of pixels, processed in a single block */ \
-    10, /* prefetch distance */ \
-    default_init, \
-    default_cleanup, \
-    pixman_composite_src_8888_8888_process_pixblock_head, \
-    pixman_composite_src_8888_8888_process_pixblock_tail, \
-    pixman_composite_src_8888_8888_process_pixblock_tail_head, \
     0, /* dst_w_basereg */ \
     0, /* dst_r_basereg */ \
     0, /* src_basereg   */ \
