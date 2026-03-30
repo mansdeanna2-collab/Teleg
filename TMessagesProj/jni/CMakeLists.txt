@@ -386,7 +386,7 @@ add_library(${NATIVE_LIB} SHARED
 )
 
 target_compile_options(${NATIVE_LIB} PUBLIC
-        -ffast-math -Os -funroll-loops -ffast-math -fno-strict-aliasing -fno-math-errno
+        -ffast-math -Os -funroll-loops -fno-strict-aliasing -fno-math-errno
         -Wno-deprecated-declarations -Wno-error=deprecated-declarations)
 
 target_compile_definitions(${NATIVE_LIB} PUBLIC
