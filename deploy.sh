@@ -386,17 +386,11 @@ build_app() {
     # 创建输出目录
     mkdir -p "${SCRIPT_DIR}/output/apk"
 
-    # 清理旧的构建输出和缓存（避免残留旧版本）
-    log_info "清理旧的构建缓存（防止版本不一致）..."
+    # 清理旧的构建输出（避免残留旧版本的 APK/AAB）
+    log_info "清理旧的构建输出（防止版本不一致）..."
     rm -rf "${CLIENT_DIR}/build/outputs/apk" 2>/dev/null || true
-    rm -rf "${SCRIPT_DIR}/TMessagesProj/build" 2>/dev/null || true
-    rm -rf "${SCRIPT_DIR}/TMessagesProj_App/build" 2>/dev/null || true
-    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppStandalone/build" 2>/dev/null || true
-    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppHuawei/build" 2>/dev/null || true
-    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppHockeyApp/build" 2>/dev/null || true
-    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppTests/build" 2>/dev/null || true
-    rm -rf "${SCRIPT_DIR}/TMessagesProj/.cxx" 2>/dev/null || true
-    rm -rf "${SCRIPT_DIR}/build" 2>/dev/null || true
+    rm -rf "${CLIENT_DIR}/build/outputs/bundle" 2>/dev/null || true
+    rm -rf "${CLIENT_DIR}/build/outputs/native-debug-symbols" 2>/dev/null || true
 
     # 使用根目录 Dockerfile 构建 Android 编译环境镜像
     log_info "构建 Android 编译环境镜像（含 SDK, NDK, CMake）..."
@@ -408,8 +402,9 @@ build_app() {
         exit 1
     fi
 
-    # 运行编译容器（挂载源码目录）
-    log_info "开始编译 APK（包含 JNI 原生代码编译）..."
+    # 运行编译容器（挂载源码目录，按照 Telegram 官方可复现构建流程）
+    log_info "开始编译 APK 和 AAB（包含 JNI 原生代码编译）..."
+    log_info "构建内容: Bundle SDK23 + Bundle Afat + Standalone + Release + Huawei"
     local run_ok=true
     docker run --rm \
         -v "${SCRIPT_DIR}:/home/source" \
@@ -421,9 +416,16 @@ build_app() {
         exit 1
     fi
 
-    # 收集输出文件（使用版本号命名）
+    # 收集 APK 输出文件（使用版本号命名）
+    # 构建输出结构（参考 Telegram 官方可复现构建）:
+    #   apk/afat/release/app.apk       - Google Play 版本
+    #   apk/afat/standalone/app.apk    - telegram.org 直接下载版
+    #   apk/afat/release/app-huawei.apk - 华为应用商店版本
     local apk_output_dir="${CLIENT_DIR}/build/outputs/apk"
+    local bundle_output_dir="${CLIENT_DIR}/build/outputs/bundle"
     local apk_count=0
+    local aab_count=0
+
     if [[ ! -d "$apk_output_dir" ]]; then
         log_error "APK 构建输出目录不存在: ${apk_output_dir}"
         log_error "Docker 构建可能未生成 APK，请检查上方构建日志"
@@ -431,18 +433,42 @@ build_app() {
     fi
 
     while IFS= read -r apk_file; do
-        # 从路径中提取变体名称（如 release/app.apk → telegram-v12.5.1-release.apk）
+        local apk_basename
+        apk_basename=$(basename "$apk_file" .apk)
         local relative_path="${apk_file#${apk_output_dir}/}"
         local variant_dir
         variant_dir=$(dirname "$relative_path")
+
+        # 根据文件名和路径确定变体名称
         local variant_name
-        variant_name=$(echo "$variant_dir" | tr '/' '-')
+        if [[ "$apk_basename" != "app" ]]; then
+            # 特殊 APK 名称（如 "app-huawei" → "huawei"）
+            variant_name="${apk_basename#app-}"
+        else
+            # 使用路径中的构建类型（如 "afat/release" → "release"，"afat/standalone" → "standalone"）
+            variant_name=$(basename "$variant_dir")
+        fi
         local target_name="telegram-v${APP_VERSION_NAME}-${variant_name}.apk"
 
         cp "$apk_file" "${SCRIPT_DIR}/output/apk/${target_name}"
         log_info "  已收集: ${target_name}"
         apk_count=$((apk_count + 1))
     done < <(find "${apk_output_dir}/" -name "*.apk" 2>/dev/null)
+
+    # 收集 AAB Bundle 输出文件
+    if [[ -d "$bundle_output_dir" ]]; then
+        mkdir -p "${SCRIPT_DIR}/output/bundle"
+        while IFS= read -r aab_file; do
+            local aab_relative="${aab_file#${bundle_output_dir}/}"
+            local aab_variant_dir
+            aab_variant_dir=$(dirname "$aab_relative")
+            local target_name="telegram-v${APP_VERSION_NAME}-${aab_variant_dir}.aab"
+
+            cp "$aab_file" "${SCRIPT_DIR}/output/bundle/${target_name}"
+            log_info "  已收集: ${target_name}"
+            aab_count=$((aab_count + 1))
+        done < <(find "${bundle_output_dir}/" -name "*.aab" 2>/dev/null)
+    fi
 
     if [[ $apk_count -gt 0 ]]; then
         log_info "APK 打包成功！共生成 ${apk_count} 个 APK"
@@ -454,12 +480,21 @@ build_app() {
         exit 1
     fi
 
+    if [[ $aab_count -gt 0 ]]; then
+        log_info "Bundle 打包成功！共生成 ${aab_count} 个 AAB"
+        log_info "AAB 输出目录: ${SCRIPT_DIR}/output/bundle/"
+        ls -lh "${SCRIPT_DIR}/output/bundle/"*.aab 2>/dev/null || true
+    fi
+
     echo ""
     log_info "=========================================="
     log_info "App 打包完成！"
     log_info "=========================================="
     log_info "应用版本: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"
     log_info "APK 文件: ${SCRIPT_DIR}/output/apk/"
+    if [[ $aab_count -gt 0 ]]; then
+        log_info "AAB 文件: ${SCRIPT_DIR}/output/bundle/"
+    fi
     log_info "客户端连接地址: http://${SERVER_IP}:${SERVER_PORT}"
     log_info "=========================================="
 }
