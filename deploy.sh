@@ -462,9 +462,9 @@ build_app() {
             local aab_relative="${aab_file#${bundle_output_dir}/}"
             local aab_variant_dir
             aab_variant_dir=$(dirname "$aab_relative")
-            # 将路径分隔符替换为连字符，防止文件名包含斜杠
+            # 将路径分隔符替换为连字符，并去除首尾连字符
             local aab_variant_name
-            aab_variant_name=$(echo "$aab_variant_dir" | tr '/' '-')
+            aab_variant_name=$(echo "$aab_variant_dir" | tr '/' '-' | sed 's/^-*//;s/-*$//;s/--*/-/g')
             local target_name="telegram-v${APP_VERSION_NAME}-${aab_variant_name}.aab"
 
             cp "$aab_file" "${SCRIPT_DIR}/output/bundle/${target_name}"
