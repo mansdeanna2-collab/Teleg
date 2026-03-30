@@ -42,8 +42,7 @@ jobs:
       - name: Clean stale build artifacts
         run: |
           echo "Cleaning stale build caches to prevent version mismatch..."
-          rm -rf TMessagesProj/build TMessagesProj_App/build TMessagesProj_AppStandalone/build
-          rm -rf TMessagesProj_AppHuawei/build TMessagesProj_AppHockeyApp/build TMessagesProj_AppTests/build
+          rm -rf TMessagesProj/build TMessagesProj_App/build TMessagesProj_AppTests/build
           rm -rf TMessagesProj/.cxx build
 
       - name: Set up Docker Buildx
@@ -62,13 +61,13 @@ jobs:
         run: |
           mkdir -p output/apk
           VERSION="${{ steps.version.outputs.version_name }}"
-          for dir in release standalone; do
-            if [ -d "TMessagesProj/build/outputs/apk/${dir}" ]; then
-              for apk in TMessagesProj/build/outputs/apk/${dir}/*.apk; do
-                [ -f "$apk" ] && cp "$apk" "output/apk/telegram-v${VERSION}-${dir}.apk"
-              done
-            fi
-          done
+          APK_DIR="TMessagesProj/build/outputs/apk"
+          if [ -d "$APK_DIR" ]; then
+            while IFS= read -r apk; do
+              dir_name=$(basename "$(dirname "$apk")")
+              cp "$apk" "output/apk/telegram-v${VERSION}-${dir_name}.apk"
+            done < <(find "$APK_DIR" -name "*.apk" -type f)
+          fi
           echo "=== Built APKs ==="
           ls -lh output/apk/ || echo "No APKs found"
 

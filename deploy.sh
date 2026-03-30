@@ -404,7 +404,7 @@ build_app() {
 
     # 运行编译容器（挂载源码目录，按照 Telegram 官方可复现构建流程）
     log_info "开始编译 APK 和 AAB（包含 JNI 原生代码编译）..."
-    log_info "构建内容: Bundle SDK23 + Bundle Afat + Standalone + Release + Huawei"
+    log_info "构建内容: Bundle SDK23 + Bundle Afat + Standalone + Release"
     local run_ok=true
     docker run --rm \
         -v "${SCRIPT_DIR}:/home/source" \
@@ -420,7 +420,6 @@ build_app() {
     # 构建输出结构（参考 Telegram 官方可复现构建）:
     #   apk/afat/release/app.apk       - Google Play 版本
     #   apk/afat/standalone/app.apk    - telegram.org 直接下载版
-    #   apk/afat/release/app-huawei.apk - 华为应用商店版本
     local apk_output_dir="${CLIENT_DIR}/build/outputs/apk"
     local bundle_output_dir="${CLIENT_DIR}/build/outputs/bundle"
     local apk_count=0
