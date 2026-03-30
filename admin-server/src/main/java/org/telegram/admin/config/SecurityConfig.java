@@ -43,7 +43,7 @@ public class SecurityConfig {
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/", "/index.html", "/pages/**", "/css/**", "/js/**").permitAll()
                 .requestMatchers("/api/**").authenticated()
-                .anyRequest().permitAll()
+                .anyRequest().authenticated()
             )
             .headers(headers -> headers.frameOptions(fo -> fo.sameOrigin()))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

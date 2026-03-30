@@ -2,6 +2,7 @@ package org.telegram.admin.config;
 
 import org.telegram.admin.model.*;
 import org.telegram.admin.repository.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,15 @@ import java.time.LocalDateTime;
 
 @Configuration
 public class DataInitializer {
+
+    @Value("${admin.default-admin.username:admin}")
+    private String defaultAdminUsername;
+
+    @Value("${admin.default-admin.password:admin123}")
+    private String defaultAdminPassword;
+
+    @Value("${admin.default-admin.email:admin@telegram.local}")
+    private String defaultAdminEmail;
 
     @Bean
     public CommandLineRunner initData(AdminRepository adminRepository,
@@ -23,11 +33,11 @@ public class DataInitializer {
                                        PasswordEncoder passwordEncoder) {
         return args -> {
             // Create default admin if not exists
-            if (!adminRepository.existsByUsername("admin")) {
+            if (!adminRepository.existsByUsername(defaultAdminUsername)) {
                 Admin admin = new Admin();
-                admin.setUsername("admin");
-                admin.setPassword(passwordEncoder.encode("admin123"));
-                admin.setEmail("admin@telegram.local");
+                admin.setUsername(defaultAdminUsername);
+                admin.setPassword(passwordEncoder.encode(defaultAdminPassword));
+                admin.setEmail(defaultAdminEmail);
                 admin.setRole("SUPER_ADMIN");
                 adminRepository.save(admin);
             }
