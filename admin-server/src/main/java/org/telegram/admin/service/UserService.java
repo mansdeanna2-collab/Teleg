@@ -41,6 +41,14 @@ public class UserService {
         return userRepository.findByPhoneNumber(phoneNumber).orElse(null);
     }
 
+    /**
+     * Save a user directly, bypassing createOrUpdateUser validation logic.
+     * Used by heartbeat to update lastActiveAt for all users including banned ones.
+     */
+    public AppUser saveUser(AppUser user) {
+        return userRepository.save(user);
+    }
+
     public AppUser banUser(Long id, String reason, LocalDateTime expiresAt, String adminUsername) {
         AppUser user = getUserById(id);
         user.setStatus("BANNED");

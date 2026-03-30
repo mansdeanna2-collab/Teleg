@@ -69,16 +69,30 @@ public class ClientApiController {
     /**
      * Report heartbeat / user activity.
      * Returns ban/restriction status for enforcement on client side.
+     * Uses direct save to avoid createOrUpdateUser's ban rejection logic,
+     * since heartbeat must return ban status rather than reject banned users.
      */
     @PostMapping("/heartbeat")
     public ResponseEntity<ApiResponse<Map<String, Object>>> heartbeat(
             @RequestParam Long telegramId) {
         try {
-            AppUser user = userService.getUserByTelegramId(telegramId);
-            user.setLastActiveAt(java.time.LocalDateTime.now());
-            userService.createOrUpdateUser(user);
+            AppUser user = userService.findByTelegramIdOptional(telegramId);
+            if (user == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("User not found"));
+            }
 
-            // Check if user is banned or restricted
+            // Auto-unban if ban has expired
+            if ("BANNED".equals(user.getStatus()) && user.getBanExpiresAt() != null
+                    && user.getBanExpiresAt().isBefore(java.time.LocalDateTime.now())) {
+                user.setStatus("ACTIVE");
+                user.setBanReason(null);
+                user.setBanExpiresAt(null);
+            }
+
+            // Update last active time directly (bypass createOrUpdateUser ban check)
+            user.setLastActiveAt(java.time.LocalDateTime.now());
+            userService.saveUser(user);
+
             Map<String, Object> response = new java.util.HashMap<>();
             response.put("status", user.getStatus());
             if ("BANNED".equals(user.getStatus()) || "RESTRICTED".equals(user.getStatus())) {
