@@ -58,7 +58,7 @@ cd admin-server
 
 ```bash
 # 克隆项目
-git clone <本仓库地址>
+git clone https://github.com/mansdeanna2-collab/Teleg.git
 
 # 用 Android Studio 打开项目 (注意: 是"打开"不是"导入")
 # 配置 release.keystore 和 google-services.json 后构建
