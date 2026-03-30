@@ -129,7 +129,7 @@ generate_random_secret() {
 read_gradle_property() {
     local key="$1"
     if [[ -f "$GRADLE_PROPERTIES" ]]; then
-        grep "^${key}=" "$GRADLE_PROPERTIES" | cut -d'=' -f2- | tr -d '[:space:]'
+        grep "^${key}=" "$GRADLE_PROPERTIES" | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
     fi
 }
 

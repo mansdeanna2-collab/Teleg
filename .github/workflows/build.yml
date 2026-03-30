@@ -44,8 +44,13 @@ jobs:
         run: |
           mkdir -p output/apk
           VERSION="${{ steps.version.outputs.version_name }}"
-          find TMessagesProj/build/outputs/apk/release -name "*.apk" -exec cp {} "output/apk/telegram-v${VERSION}-release.apk" \; 2>/dev/null || true
-          find TMessagesProj/build/outputs/apk/standalone -name "*.apk" -exec cp {} "output/apk/telegram-v${VERSION}-standalone.apk" \; 2>/dev/null || true
+          for dir in release standalone; do
+            if [ -d "TMessagesProj/build/outputs/apk/${dir}" ]; then
+              for apk in TMessagesProj/build/outputs/apk/${dir}/*.apk; do
+                [ -f "$apk" ] && cp "$apk" "output/apk/telegram-v${VERSION}-${dir}.apk"
+              done
+            fi
+          done
           echo "=== Built APKs ==="
           ls -lh output/apk/ || echo "No APKs found"
 

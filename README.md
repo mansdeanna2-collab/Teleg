@@ -54,7 +54,7 @@ cd admin-server
 
 ### 2. 构建 Android 客户端
 
-**前提条件**: Android Studio, Android SDK 35, Android NDK 21.4.7075529
+**前提条件**: Android Studio, Android SDK 35, Android NDK 26.3.11579264
 
 ```bash
 # 克隆项目
