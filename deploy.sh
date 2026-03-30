@@ -258,9 +258,10 @@ deploy_backend() {
 
     # 构建并启动容器（multi-stage Dockerfile 会自动编译 JAR）
     log_info "构建 Docker 镜像（含后端编译，首次可能需要几分钟）..."
-    docker_compose_cmd build
+    local build_ok=true
+    docker_compose_cmd build || build_ok=false
 
-    if [[ $? -ne 0 ]]; then
+    if [[ "$build_ok" != "true" ]]; then
         log_error "Docker 镜像构建失败"
         exit 1
     fi
@@ -357,20 +358,22 @@ build_app() {
 
     # 使用根目录 Dockerfile 构建 Android 编译环境镜像
     log_info "构建 Android 编译环境镜像..."
-    docker build -t telegram-app-builder -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
+    local build_ok=true
+    docker build -t telegram-app-builder -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}" || build_ok=false
 
-    if [[ $? -ne 0 ]]; then
+    if [[ "$build_ok" != "true" ]]; then
         log_error "Android 编译环境镜像构建失败"
         exit 1
     fi
 
     # 运行编译容器（挂载源码目录）
     log_info "开始编译 APK..."
+    local run_ok=true
     docker run --rm \
         -v "${SCRIPT_DIR}:/home/source" \
-        telegram-app-builder
+        telegram-app-builder || run_ok=false
 
-    if [[ $? -ne 0 ]]; then
+    if [[ "$run_ok" != "true" ]]; then
         log_error "APK 编译失败，请检查构建日志"
         exit 1
     fi

@@ -11,7 +11,7 @@ COPY gradle ./gradle
 COPY src ./src
 
 # Build the JAR
-RUN ./gradlew bootJar --no-daemon -q
+RUN ./gradlew bootJar --no-daemon
 
 # ---- Stage 2: Runtime ----
 FROM eclipse-temurin:17-jre-alpine
