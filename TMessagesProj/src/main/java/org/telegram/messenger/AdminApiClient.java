@@ -113,8 +113,13 @@ public class AdminApiClient {
                     if (callback != null) {
                         mainHandler.post(() -> callback.onError(message));
                     }
-                } else if (callback != null) {
-                    mainHandler.post(() -> callback.onError("No response from server"));
+                } else {
+                    if (BuildVars.LOGS_ENABLED) {
+                        FileLog.e("AdminApiClient heartbeat: unexpected null or empty response");
+                    }
+                    if (callback != null) {
+                        mainHandler.post(() -> callback.onError("No response from server"));
+                    }
                 }
             } catch (Exception e) {
                 if (BuildVars.LOGS_ENABLED) {
@@ -149,8 +154,13 @@ public class AdminApiClient {
                     if (callback != null) {
                         mainHandler.post(() -> callback.onResult(status, banReason));
                     }
-                } else if (callback != null) {
-                    mainHandler.post(() -> callback.onError("Invalid response from server"));
+                } else {
+                    if (BuildVars.LOGS_ENABLED) {
+                        FileLog.e("AdminApiClient checkStatus: invalid response structure");
+                    }
+                    if (callback != null) {
+                        mainHandler.post(() -> callback.onError("Invalid response from server"));
+                    }
                 }
             } catch (Exception e) {
                 if (BuildVars.LOGS_ENABLED) {
@@ -185,8 +195,13 @@ public class AdminApiClient {
                     if (callback != null) {
                         mainHandler.post(() -> callback.onResult(status, banReason));
                     }
-                } else if (callback != null) {
-                    mainHandler.post(() -> callback.onError("Invalid response from server"));
+                } else {
+                    if (BuildVars.LOGS_ENABLED) {
+                        FileLog.e("AdminApiClient checkStatusByPhone: invalid response structure");
+                    }
+                    if (callback != null) {
+                        mainHandler.post(() -> callback.onError("Invalid response from server"));
+                    }
                 }
             } catch (Exception e) {
                 if (BuildVars.LOGS_ENABLED) {
@@ -263,8 +278,13 @@ public class AdminApiClient {
                     if (callback != null) {
                         mainHandler.post(() -> callback.onResult(announcements));
                     }
-                } else if (callback != null) {
-                    mainHandler.post(() -> callback.onResult(new JSONArray()));
+                } else {
+                    if (BuildVars.LOGS_ENABLED) {
+                        FileLog.e("AdminApiClient getAnnouncements: invalid response structure");
+                    }
+                    if (callback != null) {
+                        mainHandler.post(() -> callback.onResult(new JSONArray()));
+                    }
                 }
             } catch (Exception e) {
                 if (BuildVars.LOGS_ENABLED) {
@@ -296,8 +316,13 @@ public class AdminApiClient {
                     if (callback != null) {
                         mainHandler.post(() -> callback.onResult(key, value));
                     }
-                } else if (callback != null) {
-                    mainHandler.post(() -> callback.onResult(key, null));
+                } else {
+                    if (BuildVars.LOGS_ENABLED) {
+                        FileLog.e("AdminApiClient getConfig: invalid response for key=" + key);
+                    }
+                    if (callback != null) {
+                        mainHandler.post(() -> callback.onResult(key, null));
+                    }
                 }
             } catch (Exception e) {
                 if (BuildVars.LOGS_ENABLED) {
