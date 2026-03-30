@@ -422,10 +422,17 @@ build_app() {
     fi
 
     # 收集输出文件（使用版本号命名）
+    local apk_output_dir="${CLIENT_DIR}/build/outputs/apk"
     local apk_count=0
+    if [[ ! -d "$apk_output_dir" ]]; then
+        log_error "APK 构建输出目录不存在: ${apk_output_dir}"
+        log_error "Docker 构建可能未生成 APK，请检查上方构建日志"
+        exit 1
+    fi
+
     while IFS= read -r apk_file; do
         # 从路径中提取变体名称（如 release/app.apk → telegram-v12.5.1-release.apk）
-        local relative_path="${apk_file#${CLIENT_DIR}/build/outputs/apk/}"
+        local relative_path="${apk_file#${apk_output_dir}/}"
         local variant_dir
         variant_dir=$(dirname "$relative_path")
         local variant_name
@@ -435,7 +442,7 @@ build_app() {
         cp "$apk_file" "${SCRIPT_DIR}/output/apk/${target_name}"
         log_info "  已收集: ${target_name}"
         apk_count=$((apk_count + 1))
-    done < <(find "${CLIENT_DIR}/build/outputs/apk/" -name "*.apk" 2>/dev/null)
+    done < <(find "${apk_output_dir}/" -name "*.apk" 2>/dev/null)
 
     if [[ $apk_count -gt 0 ]]; then
         log_info "APK 打包成功！共生成 ${apk_count} 个 APK"
@@ -443,7 +450,8 @@ build_app() {
         log_info "APK 输出目录: ${SCRIPT_DIR}/output/apk/"
         ls -lh "${SCRIPT_DIR}/output/apk/"*.apk 2>/dev/null || true
     else
-        log_warn "未找到 APK 文件，请检查构建日志"
+        log_error "未找到 APK 文件，请检查构建日志"
+        exit 1
     fi
 
     echo ""
