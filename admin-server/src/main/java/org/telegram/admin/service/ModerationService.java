@@ -59,7 +59,7 @@ public class ModerationService {
                     userService.restrictUser(reportedUser.getId(), "Moderation: " + note, adminUsername);
                 }
             } catch (RuntimeException ignored) {
-                // User not found by telegramId, skip action
+                // User not found by telegramId - may have been deleted or ID mismatch
             }
         }
 

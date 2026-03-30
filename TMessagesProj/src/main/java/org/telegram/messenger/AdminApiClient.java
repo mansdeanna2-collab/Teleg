@@ -246,7 +246,7 @@ public class AdminApiClient {
             java.io.InputStream errorStream = conn.getErrorStream();
             if (errorStream == null) {
                 conn.disconnect();
-                throw new Exception("HTTP error " + code + " with no response body");
+                throw new java.io.IOException("HTTP error " + code + " with no response body from " + conn.getURL().getPath());
             }
             reader = new BufferedReader(new InputStreamReader(errorStream));
         }
