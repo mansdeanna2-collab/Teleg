@@ -915,7 +915,6 @@ local skip1
     .unreq      PF_DST
     .unreq      PF_MASK
     .unreq      DUMMY
-    .endfunc
 .endm
 
 /*
@@ -1089,8 +1088,6 @@ local skip1
 
     .purgem     fetch_src_pixblock
     .purgem     pixld_src
-
-    .endfunc
 .endm
 
 .macro generate_composite_function_single_scanline x:vararg
