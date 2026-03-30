@@ -49,7 +49,14 @@ ENTRYPOINT ["/bin/bash", "-c", "\
     cp -R /home/source/. /home/gradle && \
     cd /home/gradle && \
     chmod +x gradlew && \
+    echo '--- Cleaning stale build artifacts to prevent version caching ---' && \
+    rm -rf TMessagesProj/build TMessagesProj_App/build TMessagesProj_AppStandalone/build \
+           TMessagesProj_AppHuawei/build TMessagesProj_AppHockeyApp/build TMessagesProj_AppTests/build \
+           TMessagesProj/.cxx build .gradle && \
+    echo '--- Running Gradle clean to ensure fresh build ---' && \
+    ./gradlew clean --no-daemon && \
     echo '=== Building Standalone APK ===' && \
+    echo \"Using version: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})\" && \
     ./gradlew :TMessagesProj_AppStandalone:assembleAfatStandalone --no-daemon --stacktrace && \
     echo '=== Building Release APK ===' && \
     ./gradlew :TMessagesProj_App:assembleAfatRelease --no-daemon --stacktrace && \

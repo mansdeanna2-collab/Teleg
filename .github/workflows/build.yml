@@ -31,6 +31,13 @@ jobs:
           echo "version_code=${APP_VERSION_CODE}" >> "$GITHUB_OUTPUT"
           echo "Building v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})"
 
+      - name: Clean stale build artifacts
+        run: |
+          echo "Cleaning stale build caches to prevent version mismatch..."
+          rm -rf TMessagesProj/build TMessagesProj_App/build TMessagesProj_AppStandalone/build
+          rm -rf TMessagesProj_AppHuawei/build TMessagesProj_AppHockeyApp/build TMessagesProj_AppTests/build
+          rm -rf TMessagesProj/.cxx build
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

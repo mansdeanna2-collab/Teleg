@@ -386,8 +386,17 @@ build_app() {
     # 创建输出目录
     mkdir -p "${SCRIPT_DIR}/output/apk"
 
-    # 清理旧的构建输出（避免残留）
+    # 清理旧的构建输出和缓存（避免残留旧版本）
+    log_info "清理旧的构建缓存（防止版本不一致）..."
     rm -rf "${CLIENT_DIR}/build/outputs/apk" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_App/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppStandalone/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppHuawei/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppHockeyApp/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj_AppTests/build" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/TMessagesProj/.cxx" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/build" 2>/dev/null || true
 
     # 使用根目录 Dockerfile 构建 Android 编译环境镜像
     log_info "构建 Android 编译环境镜像（含 SDK, NDK, CMake）..."
