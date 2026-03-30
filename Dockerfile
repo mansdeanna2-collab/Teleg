@@ -64,7 +64,13 @@ ENTRYPOINT ["/bin/bash", "-c", "\
     echo '=== Copying build outputs ===' && \
     mkdir -p /home/source/TMessagesProj/build/outputs/apk/release && \
     mkdir -p /home/source/TMessagesProj/build/outputs/apk/standalone && \
+    if ! find /home/gradle/TMessagesProj_App/build/outputs/apk/ -name '*.apk' -print -quit | grep -q .; then \
+        echo 'ERROR: Release APK build completed without producing any APK files' && exit 1; \
+    fi && \
     find /home/gradle/TMessagesProj_App/build/outputs/apk/ -name '*.apk' -exec cp {} /home/source/TMessagesProj/build/outputs/apk/release/ \\; && \
+    if ! find /home/gradle/TMessagesProj_AppStandalone/build/outputs/apk/ -name '*.apk' -print -quit | grep -q .; then \
+        echo 'ERROR: Standalone APK build completed without producing any APK files' && exit 1; \
+    fi && \
     find /home/gradle/TMessagesProj_AppStandalone/build/outputs/apk/ -name '*.apk' -exec cp {} /home/source/TMessagesProj/build/outputs/apk/standalone/ \\; && \
     echo '=== Build complete ===' && \
     echo \"Version: v${APP_VERSION_NAME} (code: ${APP_VERSION_CODE})\" && \
