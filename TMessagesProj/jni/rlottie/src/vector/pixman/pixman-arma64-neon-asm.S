@@ -358,10 +358,6 @@ generate_composite_function \
     pixman_composite_src_n_8888_cleanup, \
     pixman_composite_src_n_8888_process_pixblock_head, \
     pixman_composite_src_n_8888_process_pixblock_tail, \
-    pixman_composite_src_n_8888_process_pixblock_tail_head, \
-    0, /* dst_w_basereg */ \
-    0, /* dst_r_basereg */ \
-    0, /* src_basereg   */ \
-    0  /* mask_basereg  */
+    pixman_composite_src_n_8888_process_pixblock_tail_head
 
 /******************************************************************************/
