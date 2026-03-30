@@ -52,7 +52,8 @@ ENTRYPOINT ["/bin/bash", "-c", "\
     echo '--- Cleaning stale build artifacts to prevent version caching ---' && \
     rm -rf TMessagesProj/build TMessagesProj_App/build TMessagesProj_AppStandalone/build \
            TMessagesProj_AppHuawei/build TMessagesProj_AppHockeyApp/build TMessagesProj_AppTests/build \
-           TMessagesProj/.cxx build .gradle && \
+           TMessagesProj/.cxx build && \
+    rm -rf .gradle 2>/dev/null || true && \
     echo '--- Running Gradle clean to ensure fresh build ---' && \
     ./gradlew clean --no-daemon && \
     echo '=== Building Standalone APK ===' && \
