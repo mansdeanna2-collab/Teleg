@@ -266,8 +266,6 @@ target_include_directories(rlottie PUBLIC
 if (${ANDROID_ABI} STREQUAL "armeabi-v7a")
     target_compile_definitions(rlottie PUBLIC
             USE_ARM_NEON)
-    target_sources(rlottie PRIVATE
-            rlottie/src/vector/pixman/pixman-arm-neon-asm.S)
 elseif(${ANDROID_ABI} STREQUAL "arm64-v8a")
     target_compile_definitions(rlottie PUBLIC
             USE_ARM_NEON __ARM64_NEON__)
