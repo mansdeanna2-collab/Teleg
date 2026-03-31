@@ -25,6 +25,14 @@ else()
     enable_language(ASM_NASM)
 endif()
 
+# FFmpeg prebuilt static libraries (compiled with NDK r10e / GCC 4.9) contain
+# non-PIC relocations (R_AARCH64_ADR_PREL_PG_HI21 against global symbols like
+# ff_cos_32, ff_sbr_noise_table). NDK 26+ lld rejects these when linking into
+# a shared library. Allow text relocations until FFmpeg is rebuilt with a modern NDK.
+if (${ANDROID_ABI} STREQUAL "arm64-v8a")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,notext")
+endif()
+
 add_library(avutil STATIC IMPORTED)
 set_target_properties(avutil PROPERTIES IMPORTED_LOCATION ${CMAKE_HOME_DIRECTORY}/ffmpeg/${ANDROID_ABI}/libavutil.a)
 
