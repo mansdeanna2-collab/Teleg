@@ -60,17 +60,48 @@ jobs:
 
       - name: Collect APK artifacts
         run: |
-          mkdir -p output/apk
+          mkdir -p output/apk output/bundle
           VERSION="${{ steps.version.outputs.version_name }}"
-          for dir in release standalone; do
-            if [ -d "TMessagesProj/build/outputs/apk/${dir}" ]; then
-              for apk in TMessagesProj/build/outputs/apk/${dir}/*.apk; do
-                [ -f "$apk" ] && cp "$apk" "output/apk/telegram-v${VERSION}-${dir}.apk"
-              done
+          APK_BASE="TMessagesProj/build/outputs/apk"
+          BUNDLE_BASE="TMessagesProj/build/outputs/bundle"
+
+          # Collect all APK files from the Docker build output
+          # Gradle output structure: afat/release/app.apk, afat/standalone/app.apk, afat/release/app-huawei.apk
+          apk_count=0
+          while IFS= read -r apk_file; do
+            apk_basename=$(basename "$apk_file" .apk)
+            relative_path="${apk_file#${APK_BASE}/}"
+            variant_dir=$(dirname "$relative_path")
+
+            if [ "$apk_basename" != "app" ]; then
+              variant_name="${apk_basename#app-}"
+            else
+              variant_name=$(basename "$variant_dir")
             fi
-          done
-          echo "=== Built APKs ==="
-          ls -lh output/apk/ || echo "No APKs found"
+            target_name="telegram-v${VERSION}-${variant_name}.apk"
+
+            cp "$apk_file" "output/apk/${target_name}"
+            echo "Collected: ${target_name}"
+            apk_count=$((apk_count + 1))
+          done < <(find "${APK_BASE}/" -name "*.apk" 2>/dev/null)
+
+          # Collect AAB bundles
+          if [ -d "$BUNDLE_BASE" ]; then
+            while IFS= read -r aab_file; do
+              aab_relative="${aab_file#${BUNDLE_BASE}/}"
+              aab_variant_dir=$(dirname "$aab_relative")
+              aab_variant_name=$(echo "$aab_variant_dir" | tr '/' '-' | sed 's/^-*//;s/-*$//;s/--*/-/g')
+              target_name="telegram-v${VERSION}-${aab_variant_name}.aab"
+
+              cp "$aab_file" "output/bundle/${target_name}"
+              echo "Collected: ${target_name}"
+            done < <(find "${BUNDLE_BASE}/" -name "*.aab" 2>/dev/null)
+          fi
+
+          echo "=== Built APKs (${apk_count}) ==="
+          ls -lh output/apk/ 2>/dev/null || echo "No APKs found"
+          echo "=== Built AABs ==="
+          ls -lh output/bundle/ 2>/dev/null || echo "No AABs found"
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
@@ -78,4 +109,13 @@ jobs:
           name: telegram-apk-v${{ steps.version.outputs.version_name }}
           path: output/apk/*.apk
           if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload AAB artifacts
+        uses: actions/upload-artifact@v4
+        if: hashFiles('output/bundle/*.aab') != ''
+        with:
+          name: telegram-aab-v${{ steps.version.outputs.version_name }}
+          path: output/bundle/*.aab
+          if-no-files-found: warn
           retention-days: 30
